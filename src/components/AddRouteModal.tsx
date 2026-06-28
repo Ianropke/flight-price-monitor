@@ -658,8 +658,13 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                   min={new Date().toISOString().split('T')[0]}
                   value={specificDepartureDate}
                   onChange={(e) => setSpecificDepartureDate(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch (err) {}
+                  }}
                   required={!isFlexible}
-                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white cursor-pointer"
                 />
               </div>
               
@@ -673,8 +678,13 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                   min={specificDepartureDate || new Date().toISOString().split('T')[0]}
                   value={specificReturnDate}
                   onChange={(e) => setSpecificReturnDate(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch (err) {}
+                  }}
                   required={!isFlexible}
-                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white cursor-pointer"
                 />
               </div>
             </div>
