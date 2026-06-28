@@ -13,6 +13,7 @@ export default function Home() {
   const [routes, setRoutes] = useState<RouteWithHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [routeToEdit, setRouteToEdit] = useState<RouteWithHistory | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
   const [isCronRunning, setIsCronRunning] = useState(false);
   const [cronLogs, setCronLogs] = useState<any>(null);
@@ -38,8 +39,25 @@ export default function Home() {
     setRoutes(prev => prev.filter(r => r.id !== deletedId));
   };
 
-  const handleRouteAdded = (newRoute: any) => {
-    setRoutes(prev => [newRoute, ...prev]);
+  const handleRouteSuccess = (savedRoute: any) => {
+    setRoutes(prev => {
+      const exists = prev.some(r => r.id === savedRoute.id);
+      if (exists) {
+        return prev.map(r => r.id === savedRoute.id ? savedRoute : r);
+      } else {
+        return [savedRoute, ...prev];
+      }
+    });
+  };
+
+  const handleAddClick = () => {
+    setRouteToEdit(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditClick = (route: RouteWithHistory) => {
+    setRouteToEdit(route);
+    setIsModalOpen(true);
   };
 
   const handleRouteRefresh = () => {
@@ -143,7 +161,7 @@ export default function Home() {
           </button>
 
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleAddClick}
             className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -271,6 +289,7 @@ export default function Home() {
                 route={route}
                 onDelete={handleRouteDeleted}
                 onRefresh={handleRouteRefresh}
+                onEdit={handleEditClick}
               />
             ))}
           </div>
@@ -297,7 +316,7 @@ export default function Home() {
               </button>
               
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={handleAddClick}
                 className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all"
               >
                 Tilføj din første rute
@@ -311,7 +330,8 @@ export default function Home() {
       <AddRouteModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={handleRouteAdded}
+        onSuccess={handleRouteSuccess}
+        routeToEdit={routeToEdit}
       />
       
     </main>

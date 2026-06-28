@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { X, PlaneTakeoff, PlaneLanding, Calendar, DollarSign, Percent, Loader2, Sparkles } from 'lucide-react';
+import { RouteWithHistory } from '@/types';
 
 interface AddRouteModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (newRoute: any) => void;
+  routeToEdit?: RouteWithHistory | null;
 }
 
 interface Airport {
@@ -60,10 +62,9 @@ interface TimeOption {
   end: string;
 }
 
-// Generate Month Options starting from June 2026
 const generateMonthOptions = (): TimeOption[] => {
   const options: TimeOption[] = [];
-  const start = new Date(2026, 5, 1); // June 2026
+  const start = new Date(2026, 5, 1);
   
   const monthNames = [
     'Januar', 'Februar', 'Marts', 'April', 'Maj', 'Juni',
@@ -90,11 +91,8 @@ const generateMonthOptions = (): TimeOption[] => {
   return options;
 };
 
-// Generate Week Options starting from June 2026
 const generateWeekOptions = (): TimeOption[] => {
   const options: TimeOption[] = [];
-  
-  // June 28, 2026 is week 26. Start Monday of this week.
   const today = new Date(2026, 5, 28);
   const day = today.getDay();
   const diff = today.getDate() - day + (day === 0 ? -6 : 1);
@@ -143,7 +141,7 @@ const generateWeekOptions = (): TimeOption[] => {
   return options;
 };
 
-export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteModalProps) {
+export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit }: AddRouteModalProps) {
   const [originSearch, setOriginSearch] = useState('');
   const [originIata, setOriginIata] = useState('');
   const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
@@ -159,7 +157,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
   const monthOptions = generateMonthOptions();
   const weekOptions = generateWeekOptions();
   
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState('5'); // Default index 5 = November 2026
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState('5');
   const [selectedWeekIndex, setSelectedWeekIndex] = useState('0');
   
   const [specificDepartureDate, setSpecificDepartureDate] = useState('');
@@ -179,6 +177,77 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
 
   const originRef = useRef<HTMLDivElement>(null);
   const destRef = useRef<HTMLDivElement>(null);
+
+  // Pre-fill fields if editing
+  useEffect(() => {
+    if (isOpen && routeToEdit) {
+      const origAirport = POPULAR_AIRPORTS.find(a => a.code === routeToEdit.origin_iata);
+      setOriginSearch(origAirport ? `${origAirport.city} (${origAirport.code})` : routeToEdit.origin_iata);
+      setOriginIata(routeToEdit.origin_iata);
+
+      const destAirport = POPULAR_AIRPORTS.find(a => a.code === routeToEdit.destination_iata);
+      setDestSearch(destAirport ? `${destAirport.city} (${destAirport.code})` : routeToEdit.destination_iata);
+      setDestIata(routeToEdit.destination_iata);
+
+      setCurrency(routeToEdit.currency || 'DKK');
+      setTargetType(routeToEdit.target_price_threshold ? 'absolute' : 'percentage');
+      setTargetPriceThreshold(routeToEdit.target_price_threshold ? String(routeToEdit.target_price_threshold) : '');
+      setDropPercentageThreshold(routeToEdit.drop_percentage_threshold ? String(routeToEdit.drop_percentage_threshold) : '');
+
+      const isFlex = !!routeToEdit.trip_duration;
+      setIsFlexible(isFlex);
+
+      if (isFlex) {
+        const durationStr = String(routeToEdit.trip_duration);
+        if (['3', '4', '7', '10', '14'].includes(durationStr)) {
+          setDurationPreset(durationStr as any);
+        } else {
+          setDurationPreset('custom');
+          setCustomTripDuration(durationStr);
+        }
+
+        const matchedMonthIdx = monthOptions.findIndex(
+          o => o.start === routeToEdit.departure_date && o.end === routeToEdit.return_date
+        );
+        const matchedWeekIdx = weekOptions.findIndex(
+          o => o.start === routeToEdit.departure_date && o.end === routeToEdit.return_date
+        );
+
+        if (matchedMonthIdx !== -1) {
+          setFlexType('month');
+          setSelectedMonthIndex(String(matchedMonthIdx));
+        } else if (matchedWeekIdx !== -1) {
+          setFlexType('week');
+          setSelectedWeekIndex(String(matchedWeekIdx));
+        } else {
+          setIsFlexible(false);
+          setSpecificDepartureDate(routeToEdit.departure_date);
+          setSpecificReturnDate(routeToEdit.return_date);
+          setDurationPreset('custom');
+          setCustomTripDuration(durationStr);
+        }
+      } else {
+        setSpecificDepartureDate(routeToEdit.departure_date);
+        setSpecificReturnDate(routeToEdit.return_date);
+      }
+    } else if (isOpen) {
+      // Reset form fields
+      setOriginSearch('');
+      setOriginIata('');
+      setDestSearch('');
+      setDestIata('');
+      setSpecificDepartureDate('');
+      setSpecificReturnDate('');
+      setIsFlexible(false);
+      setFlexType('month');
+      setSelectedMonthIndex('5');
+      setSelectedWeekIndex('0');
+      setDurationPreset('7');
+      setCustomTripDuration('7');
+      setTargetPriceThreshold('');
+      setDropPercentageThreshold('');
+    }
+  }, [isOpen, routeToEdit]);
 
   // Close lists on outside click
   useEffect(() => {
@@ -263,7 +332,6 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
       return;
     }
 
-    // Determine travel dates based on mode
     let departure_date = '';
     let return_date = '';
     let trip_duration: number | null = null;
@@ -299,12 +367,14 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
     setIsLoading(true);
 
     try {
+      const method = routeToEdit ? 'PATCH' : 'POST';
       const response = await fetch('/api/routes', {
-        method: 'POST',
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          id: routeToEdit?.id,
           origin_iata: finalOrigin,
           destination_iata: finalDest,
           departure_date,
@@ -319,25 +389,10 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Kunne ikke oprette overvågning');
+        throw new Error(data.error || 'Kunne ikke gemme overvågning');
       }
 
       onSuccess(data);
-      // Reset form
-      setOriginSearch('');
-      setOriginIata('');
-      setDestSearch('');
-      setDestIata('');
-      setSpecificDepartureDate('');
-      setSpecificReturnDate('');
-      setIsFlexible(false);
-      setFlexType('month');
-      setSelectedMonthIndex('5');
-      setSelectedWeekIndex('0');
-      setDurationPreset('7');
-      setCustomTripDuration('7');
-      setTargetPriceThreshold('');
-      setDropPercentageThreshold('');
       onClose();
     } catch (err: any) {
       setError(err.message || 'Der opstod en uventet fejl');
@@ -359,7 +414,9 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
           <div className="flex items-center space-x-2">
             <Sparkles className="w-5 h-5 text-indigo-400 glow-text-indigo" />
-            <h2 className="text-xl font-semibold tracking-wide text-white font-outfit">Overvåg ny rute</h2>
+            <h2 className="text-xl font-semibold tracking-wide text-white font-outfit">
+              {routeToEdit ? 'Rediger overvågning' : 'Overvåg ny rute'}
+            </h2>
           </div>
           <button 
             onClick={onClose}
@@ -392,7 +449,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
                 onFocus={() => setShowOriginSuggestions(true)}
                 required
                 autoComplete="off"
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
+                disabled={!!routeToEdit} // Lock airports on edit to prevent inconsistency, or keep editable
+                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white disabled:opacity-50"
               />
               {showOriginSuggestions && originSuggestions.length > 0 && (
                 <div className="absolute left-0 right-0 mt-1 z-[100] max-h-48 overflow-y-auto rounded-xl bg-gray-950/95 border border-white/10 shadow-2xl backdrop-blur-md">
@@ -429,7 +487,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
                 onFocus={() => setShowDestSuggestions(true)}
                 required
                 autoComplete="off"
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
+                disabled={!!routeToEdit}
+                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white disabled:opacity-50"
               />
               {showDestSuggestions && destSuggestions.length > 0 && (
                 <div className="absolute left-0 right-0 mt-1 z-[100] max-h-48 overflow-y-auto rounded-xl bg-gray-950/95 border border-white/10 shadow-2xl backdrop-blur-md">
@@ -487,7 +546,6 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
           {isFlexible ? (
             <div className="space-y-4 p-4 rounded-xl bg-white/5 border border-white/5 animate-fade-in">
               <div className="grid grid-cols-2 gap-4">
-                {/* Search Unit selector */}
                 <div className="space-y-1.5 col-span-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Overvåg tidsrum</label>
                   <div className="flex gap-2">
@@ -516,7 +574,6 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
                   </div>
                 </div>
                 
-                {/* Specific Month / Week selection dropdowns */}
                 {flexType === 'month' ? (
                   <div className="space-y-1.5 col-span-2">
                     <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Vælg måned</label>
@@ -545,7 +602,6 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
                   </div>
                 )}
 
-                {/* Duration Presets Selector */}
                 <div className="space-y-1.5 col-span-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Rejsens varighed</label>
                   <div className="grid grid-cols-3 gap-2">
@@ -573,7 +629,6 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
                   </div>
                 </div>
 
-                {/* Custom days input (if selected) */}
                 {durationPreset === 'custom' && (
                   <div className="space-y-1.5 col-span-2 animate-fade-in">
                     <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Indtast rejsevarighed (antal dage)</label>
@@ -589,11 +644,9 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
                     />
                   </div>
                 )}
-
               </div>
             </div>
           ) : (
-            /* Specific Dates Pickers */
             <div className="grid grid-cols-2 gap-4 animate-fade-in">
               <div className="space-y-2">
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
@@ -752,7 +805,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Start overvågning</span>
+                  <span>{routeToEdit ? 'Gem ændringer' : 'Start overvågning'}</span>
                 </>
               )}
             </button>

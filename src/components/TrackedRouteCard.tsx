@@ -1,16 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, TrendingDown, TrendingUp, Bell, RefreshCw, Calendar, ArrowRight, EyeOff } from 'lucide-react';
+import { Trash2, TrendingDown, TrendingUp, Bell, RefreshCw, Calendar, ArrowRight, EyeOff, Pencil } from 'lucide-react';
 import { RouteWithHistory } from '@/types';
 
 interface TrackedRouteCardProps {
   route: RouteWithHistory;
   onDelete: (id: string) => void;
   onRefresh: (id: string) => void;
+  onEdit: (route: RouteWithHistory) => void;
 }
 
-export default function TrackedRouteCard({ route, onDelete, onRefresh }: TrackedRouteCardProps) {
+export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }: TrackedRouteCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hoveredPoint, setHoveredPoint] = useState<{ price: number; date: string; x: number; y: number } | null>(null);
@@ -228,6 +229,13 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
               className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-30"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-400' : ''}`} />
+            </button>
+            <button
+              onClick={() => onEdit(route)}
+              title="Rediger overvågning"
+              className="p-2 rounded-lg text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+            >
+              <Pencil className="w-4 h-4" />
             </button>
             <button
               onClick={handleDelete}

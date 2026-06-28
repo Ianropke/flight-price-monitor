@@ -298,3 +298,131 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
+
+// PATCH: Update an existing tracked route's configurations
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { 
+      id,
+      departure_date, 
+      return_date, 
+      target_price_threshold, 
+      drop_percentage_threshold, 
+      trip_duration,
+      currency = 'DKK' 
+    } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Route ID is required' }, { status: 400 });
+    }
+    if (!departure_date || !return_date) {
+      return NextResponse.json({ error: 'Afrejse- og hjemrejsedato er påkrævet' }, { status: 400 });
+    }
+    if (new Date(departure_date) > new Date(return_date)) {
+      return NextResponse.json({ error: 'Afrejsedato skal være før eller lig med hjemrejsedato' }, { status: 400 });
+    }
+
+    const supabase = await createServerSideClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Verify ownership/guest access
+    const verifyQuery = supabase
+      .from('tracked_routes')
+      .select('id')
+      .eq('id', id);
+
+    if (user) {
+      verifyQuery.eq('user_id', user.id);
+    } else {
+      verifyQuery.is('user_id', null);
+    }
+
+    const { data: routeExists, error: verifyError } = await verifyQuery.single();
+
+    if (verifyError || !routeExists) {
+      return NextResponse.json({ error: 'Rute ikke fundet eller uautoriseret' }, { status: 404 });
+    }
+
+    // Determine status (if they update dates to the future, reset status to active!)
+    const todayStr = new Date().toISOString().split('T')[0];
+    const newStatus = new Date(departure_date) >= new Date(todayStr) ? 'active' : 'inactive';
+
+    // Update tracked route fields
+    const { data: updatedRoute, error: updateError } = await supabase
+      .from('tracked_routes')
+      .update({
+        departure_date,
+        return_date,
+        target_price_threshold: target_price_threshold ? parseFloat(target_price_threshold) : null,
+        drop_percentage_threshold: drop_percentage_threshold ? parseFloat(drop_percentage_threshold) : null,
+        trip_duration: trip_duration ? parseInt(trip_duration) : null,
+        currency: currency.toUpperCase(),
+        status: newStatus
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    // Trigger price refresh immediately so graph reflects updated date candidate/price point
+    let freshPrice: number | null = null;
+    try {
+      const priceResult = await flightService.fetchLowestPrice({
+        origin: updatedRoute.origin_iata,
+        destination: updatedRoute.destination_iata,
+        departureDate: updatedRoute.departure_date,
+        returnDate: updatedRoute.return_date,
+        currency: updatedRoute.currency,
+        tripDuration: updatedRoute.trip_duration
+      });
+
+      freshPrice = priceResult.lowestPrice;
+
+      // Save initial price history entry for new configuration
+      await supabase
+        .from('price_history')
+        .insert({
+          route_id: updatedRoute.id,
+          lowest_price_found: freshPrice,
+          currency: updatedRoute.currency,
+          raw_response: priceResult.rawPayload
+        });
+    } catch (apiError: any) {
+      console.warn(`Could not refresh initial price on edit for route ${updatedRoute.id}:`, apiError.message);
+    }
+
+    // Fetch final updated route with history points
+    const { data: finalRoute } = await supabase
+      .from('tracked_routes')
+      .select(`
+        *,
+        price_history (
+          id,
+          route_id,
+          fetch_date,
+          lowest_price_found,
+          currency,
+          created_at
+        )
+      `)
+      .eq('id', updatedRoute.id)
+      .single();
+
+    const sortedHistory = [...(finalRoute.price_history || [])].sort(
+      (a, b) => new Date(a.fetch_date).getTime() - new Date(b.fetch_date).getTime()
+    );
+
+    return NextResponse.json({
+      ...finalRoute,
+      price_history: sortedHistory
+    });
+
+  } catch (error: any) {
+    console.error('Error updating route:', error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+}
