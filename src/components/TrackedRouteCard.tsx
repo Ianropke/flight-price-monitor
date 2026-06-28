@@ -415,12 +415,27 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
               {history.length} pristjek registreret
             </div>
           </div>
+        ) : history.length === 1 ? (
+          <div className="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10 space-y-3">
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+              <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">Aktiv overvågning startet</span>
+            </div>
+            <div className="space-y-1">
+              <div className="text-sm font-semibold text-white">
+                Første måling registreret: <span className="text-indigo-400 font-bold">{currentPrice?.toLocaleString() || '---'} {route.currency}</span>
+              </div>
+              <p className="text-[10px] text-gray-400 leading-relaxed">
+                Vi har hentet startprisen fra Google Flights. Systemet overvåger prisen dagligt, og kurven tegnes automatisk så snart næste pristjek registreres.
+              </p>
+            </div>
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-8 px-4 text-center space-y-2">
             <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
-            <div className="text-xs font-semibold text-gray-400">Indsamler prishistorik...</div>
+            <div className="text-xs font-semibold text-gray-400">Henter flypriser...</div>
             <div className="text-[10px] text-gray-500 max-w-[200px]">
-              Vi skal bruge mindst to historiske prispunkter for at vise kurven.
+              Vi opretter forbindelse til Google Flights for at indsamle den første pris.
             </div>
           </div>
         )}
