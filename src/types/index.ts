@@ -9,6 +9,7 @@ export interface TrackedRoute {
   drop_percentage_threshold: number | null;
   currency: string;
   status: 'active' | 'inactive';
+  trip_duration: number | null;
   created_at: string;
 }
 

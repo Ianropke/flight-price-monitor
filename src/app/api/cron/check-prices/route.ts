@@ -90,6 +90,7 @@ export async function GET(request: Request) {
           departureDate: route.departure_date,
           returnDate: route.return_date,
           currency: route.currency,
+          tripDuration: route.trip_duration
         });
 
         const currentPrice = priceResult.lowestPrice;

@@ -65,6 +65,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
 
   const [departureDate, setDepartureDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
+  const [isFlexible, setIsFlexible] = useState(false);
+  const [tripDuration, setTripDuration] = useState('7');
   const [targetType, setTargetType] = useState<'absolute' | 'percentage'>('absolute');
   const [targetPriceThreshold, setTargetPriceThreshold] = useState('');
   const [dropPercentageThreshold, setDropPercentageThreshold] = useState('');
@@ -183,6 +185,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
           return_date: returnDate,
           target_price_threshold: targetType === 'absolute' ? parseFloat(targetPriceThreshold) || null : null,
           drop_percentage_threshold: targetType === 'percentage' ? parseFloat(dropPercentageThreshold) || null : null,
+          trip_duration: isFlexible ? parseInt(tripDuration) || null : null,
           currency: currency.toUpperCase()
         }),
       });
@@ -201,6 +204,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
       setDestIata('');
       setDepartureDate('');
       setReturnDate('');
+      setIsFlexible(false);
+      setTripDuration('7');
       setTargetPriceThreshold('');
       setDropPercentageThreshold('');
       onClose();
@@ -319,12 +324,41 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
             </div>
           </div>
 
+          {/* Dato-fleksibilitet */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Dato-fleksibilitet</label>
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-gray-900/80 border border-white/5">
+              <button
+                type="button"
+                onClick={() => setIsFlexible(false)}
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  !isFlexible 
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Bestemte datoer
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFlexible(true)}
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  isFlexible 
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Fleksibelt tidsrum
+              </button>
+            </div>
+          </div>
+
           {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                Afrejsedato
+                {isFlexible ? 'Tidligste afrejse' : 'Afrejsedato'}
               </label>
               <input
                 type="date"
@@ -339,7 +373,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                Hjemrejsedato
+                {isFlexible ? 'Seneste hjemrejse' : 'Hjemrejsedato'}
               </label>
               <input
                 type="date"
@@ -351,6 +385,25 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
               />
             </div>
           </div>
+
+          {/* Rejsevarighed (vises kun ved fleksibelt tidsrum) */}
+          {isFlexible && (
+            <div className="space-y-2 animate-fade-in">
+              <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Ønsket rejsevarighed (antal dage)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={90}
+                value={tripDuration}
+                onChange={(e) => setTripDuration(e.target.value)}
+                required={isFlexible}
+                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
+                placeholder="f.eks. 7"
+              />
+            </div>
+          )}
 
           {/* Threshold Options Selector */}
           <div className="space-y-2">

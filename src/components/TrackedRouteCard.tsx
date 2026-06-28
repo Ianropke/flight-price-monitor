@@ -168,9 +168,17 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
             
             <div className="flex items-center space-x-1.5 mt-1 text-xs text-gray-400 font-medium">
               <Calendar className="w-3.5 h-3.5" />
-              <span>{formattedDate(route.departure_date)}</span>
-              <span>•</span>
-              <span>{formattedDate(route.return_date)}</span>
+              {route.trip_duration ? (
+                <span className="text-[11px] font-semibold text-indigo-300">
+                  {formattedDate(route.departure_date)} - {formattedDate(route.return_date)} ({route.trip_duration} dg.)
+                </span>
+              ) : (
+                <>
+                  <span>{formattedDate(route.departure_date)}</span>
+                  <span>•</span>
+                  <span>{formattedDate(route.return_date)}</span>
+                </>
+              )}
             </div>
           </div>
 

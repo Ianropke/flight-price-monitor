@@ -67,6 +67,7 @@ export async function POST(request: Request) {
       return_date, 
       target_price_threshold, 
       drop_percentage_threshold, 
+      trip_duration,
       currency = 'DKK' 
     } = body;
 
@@ -98,6 +99,7 @@ export async function POST(request: Request) {
         return_date,
         target_price_threshold: target_price_threshold ? parseFloat(target_price_threshold) : null,
         drop_percentage_threshold: drop_percentage_threshold ? parseFloat(drop_percentage_threshold) : null,
+        trip_duration: trip_duration ? parseInt(trip_duration) : null,
         currency: currency.toUpperCase(),
         status: 'active'
       })
@@ -116,7 +118,8 @@ export async function POST(request: Request) {
         destination: route.destination_iata,
         departureDate: route.departure_date,
         returnDate: route.return_date,
-        currency: route.currency
+        currency: route.currency,
+        tripDuration: route.trip_duration
       });
 
       initialPrice = priceResult.lowestPrice;
@@ -246,7 +249,8 @@ export async function PUT(request: Request) {
       destination: route.destination_iata,
       departureDate: route.departure_date,
       returnDate: route.return_date,
-      currency: route.currency
+      currency: route.currency,
+      tripDuration: route.trip_duration
     });
 
     // Save the new price to history

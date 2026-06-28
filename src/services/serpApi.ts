@@ -1,9 +1,10 @@
 export interface FlightSearchCriteria {
   origin: string;
   destination: string;
-  departureDate: string; // YYYY-MM-DD
-  returnDate?: string;    // YYYY-MM-DD (optional, if roundtrip)
+  departureDate: string; // YYYY-MM-DD (or earliest departure if flexible)
+  returnDate?: string;    // YYYY-MM-DD (or latest return if flexible)
   currency?: string;      // Defaults to DKK
+  tripDuration?: number | null; // Optional trip duration in days for flexible windows
 }
 
 export interface FlightPriceResult {
@@ -35,104 +36,210 @@ class SerpApiFlightService implements IFlightService {
     return 1000 + (Math.abs(hash) % 3500); // 1000 to 4500 DKK
   }
 
-  private getSimulatedPrice(basePrice: number): number {
+  private getSimulatedPrice(basePrice: number, isFlexible = false): number {
     // Generer et dynamisk udsving på +/- 15% baseret på sekundtal
     const now = Date.now();
     const wave = Math.sin(now / 15000);
-    const fluctuation = basePrice * 0.15 * wave;
-    return Math.round(basePrice + fluctuation);
+    let fluctuation = basePrice * 0.15 * wave;
+    
+    // Fleksible tidsrum er typisk 10% billigere i gennemsnit
+    let finalPrice = basePrice + fluctuation;
+    if (isFlexible) {
+      finalPrice = finalPrice * 0.9;
+    }
+    return Math.round(finalPrice);
+  }
+
+  // Single standard API fetch helper
+  private async fetchSinglePrice(
+    apiKey: string,
+    origin: string,
+    destination: string,
+    departureDate: string,
+    returnDate: string | undefined,
+    currency: string
+  ): Promise<FlightPriceResult> {
+    const params = new URLSearchParams({
+      engine: 'google_flights',
+      departure_id: origin.toUpperCase(),
+      arrival_id: destination.toUpperCase(),
+      outbound_date: departureDate,
+      currency: currency,
+      hl: 'da',
+      gl: 'dk',
+      api_key: apiKey,
+    });
+
+    if (returnDate) {
+      params.append('return_date', returnDate);
+    }
+
+    const response = await fetch(`https://serpapi.com/search.json?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`SerpApi search failed [${response.status}]: ${errorBody}`);
+    }
+
+    const payload = await response.json();
+
+    // 1. Prøv at hente fra price_insights.lowest_price
+    let lowestPrice = payload.price_insights?.lowest_price;
+
+    // 2. Hvis missing, scan best_flights og andre flyvninger
+    if (!lowestPrice) {
+      const allFlights = [
+        ...(payload.best_flights || []),
+        ...(payload.other_flights || []),
+      ];
+
+      if (allFlights.length === 0) {
+        throw new Error(`Ingen flyvninger fundet hos SerpApi for rute ${origin} -> ${destination}`);
+      }
+
+      const prices = allFlights
+        .map(f => parseFloat(f.price))
+        .filter(p => !isNaN(p));
+      
+      if (prices.length > 0) {
+        lowestPrice = Math.min(...prices);
+      }
+    }
+
+    if (!lowestPrice) {
+      throw new Error('Kunne ikke udtrække laveste flypris fra SerpApi-svar');
+    }
+
+    // Hent flyselskabskode hvis tilgængelig
+    let carrierCode: string | undefined;
+    try {
+      carrierCode = payload.best_flights?.[0]?.flights?.[0]?.airline;
+    } catch (e) {}
+
+    return {
+      lowestPrice,
+      currency,
+      carrierCode,
+      rawPayload: payload,
+    };
   }
 
   async fetchLowestPrice(criteria: FlightSearchCriteria): Promise<FlightPriceResult> {
     const apiKey = process.env.SERPAPI_KEY;
     const currency = criteria.currency || 'DKK';
+    const isFlexible = !!criteria.tripDuration && criteria.tripDuration > 0;
 
     // Hvis SerpApi-nøgle er angivet, lav et rigtigt kald til Google Flights via SerpApi
     if (apiKey && apiKey !== 'your-serpapi-api-key') {
       try {
-        const params = new URLSearchParams({
-          engine: 'google_flights',
-          departure_id: criteria.origin.toUpperCase(),
-          arrival_id: criteria.destination.toUpperCase(),
-          outbound_date: criteria.departureDate,
-          currency: currency,
-          hl: 'da',
-          gl: 'dk',
-          api_key: apiKey,
-        });
+        if (isFlexible && criteria.returnDate) {
+          // Beregn dato-kandidater for fleksibel overvågning
+          const tripDuration = criteria.tripDuration!;
+          const start = new Date(criteria.departureDate);
+          const end = new Date(criteria.returnDate);
 
-        if (criteria.returnDate) {
-          params.append('return_date', criteria.returnDate);
-        }
+          const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+          const maxDepartureDays = totalDays - tripDuration;
 
-        const response = await fetch(`https://serpapi.com/search.json?${params.toString()}`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-          },
-        });
+          if (maxDepartureDays <= 0) {
+            // Hvis vinduet er for kort eller lig med rejsens længde, lav en enkelt standard søgning
+            return await this.fetchSinglePrice(
+              apiKey,
+              criteria.origin,
+              criteria.destination,
+              criteria.departureDate,
+              criteria.returnDate,
+              currency
+            );
+          }
 
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`SerpApi search failed [${response.status}]: ${errorBody}`);
-        }
+          // Definer 3 afrejse-kandidater (starten af vinduet, midten, og slutningen af vinduet)
+          const addDays = (d: Date, days: number): string => {
+            const temp = new Date(d);
+            temp.setDate(temp.getDate() + days);
+            return temp.toISOString().split('T')[0];
+          };
 
-        const payload = await response.json();
-
-        // 1. Prøv at hente fra price_insights.lowest_price
-        let lowestPrice = payload.price_insights?.lowest_price;
-
-        // 2. Hvis missing, scan best_flights og andre flyvninger
-        if (!lowestPrice) {
-          const allFlights = [
-            ...(payload.best_flights || []),
-            ...(payload.other_flights || []),
+          const depDates = [
+            criteria.departureDate, // Start
+            addDays(start, Math.floor(maxDepartureDays / 2)), // Midte
+            addDays(start, maxDepartureDays) // Slut
           ];
 
-          if (allFlights.length === 0) {
-            throw new Error(`Ingen flyvninger fundet hos SerpApi for rute ${criteria.origin} -> ${criteria.destination}`);
+          // Fjern dubletter hvis tidsvinduet er kort
+          const uniqueDepDates = Array.from(new Set(depDates));
+
+          console.log(`[SerpApi Flexible Search] Tjekker datoer:`, uniqueDepDates);
+
+          const searchPromises = uniqueDepDates.map(depDate => {
+            const retDate = addDays(new Date(depDate), tripDuration);
+            return this.fetchSinglePrice(
+              apiKey,
+              criteria.origin,
+              criteria.destination,
+              depDate,
+              retDate,
+              currency
+            ).catch(err => {
+              console.warn(`Fejl ved søgning på kandidatdato ${depDate}:`, err.message);
+              return null;
+            });
+          });
+
+          const results = (await Promise.all(searchPromises)).filter(r => r !== null) as FlightPriceResult[];
+
+          if (results.length === 0) {
+            throw new Error(`Ingen kandidat-datoer lykkedes under fleksibel søgning.`);
           }
 
-          const prices = allFlights
-            .map(f => parseFloat(f.price))
-            .filter(p => !isNaN(p));
-          
-          if (prices.length > 0) {
-            lowestPrice = Math.min(...prices);
+          // Vælg det absolut billigste resultat blandt kandidat-søgningerne
+          let cheapestResult = results[0];
+          for (const res of results) {
+            if (res.lowestPrice < cheapestResult.lowestPrice) {
+              cheapestResult = res;
+            }
           }
+
+          return {
+            ...cheapestResult,
+            rawPayload: {
+              info: 'Fleksibel søgning på tværs af flere kandidat-datoer',
+              searchedDatesCount: uniqueDepDates.length,
+              cheapestOption: cheapestResult,
+              allResults: results
+            }
+          };
+        } else {
+          // Standard specifik dato-søgning
+          return await this.fetchSinglePrice(
+            apiKey,
+            criteria.origin,
+            criteria.destination,
+            criteria.departureDate,
+            criteria.returnDate,
+            currency
+          );
         }
 
-        if (!lowestPrice) {
-          throw new Error('Kunne ikke udtrække laveste flypris fra SerpApi-svar');
-        }
-
-        // Hent flyselskabskode hvis tilgængelig
-        let carrierCode: string | undefined;
-        try {
-          carrierCode = payload.best_flights?.[0]?.flights?.[0]?.airline;
-        } catch (e) {}
-
-        return {
-          lowestPrice,
-          currency,
-          carrierCode,
-          rawPayload: payload,
-        };
-
-      } catch (error) {
-        console.warn('Real SerpApi call failed, falling back to simulator:', error);
+      } catch (error: any) {
+        console.warn('Real SerpApi call failed, falling back to simulator:', error.message);
       }
     }
 
     // Simulator Fallback
     const basePrice = this.getBasePrice(criteria.origin, criteria.destination);
-    const simulatedPrice = this.getSimulatedPrice(basePrice);
+    const simulatedPrice = this.getSimulatedPrice(basePrice, isFlexible);
     
     const carriers = ['SK', 'DY', 'FR', 'EZ', 'LH', 'TP'];
     const carrierIndex = Math.abs(criteria.origin.charCodeAt(0) + criteria.destination.charCodeAt(0)) % carriers.length;
     const carrierCode = carriers[carrierIndex];
 
-    console.log(`[SerpApi Flight Simulator] ${criteria.origin} -> ${criteria.destination}: ${simulatedPrice} ${currency}`);
+    console.log(`[SerpApi Flight Simulator] ${criteria.origin} -> ${criteria.destination}: ${simulatedPrice} ${currency} (Fleksibel: ${isFlexible})`);
 
     return {
       lowestPrice: simulatedPrice,
@@ -141,6 +248,7 @@ class SerpApiFlightService implements IFlightService {
       rawPayload: {
         info: 'Simuleret prisdata fra SerpApi Google Flights simulator',
         basePrice,
+        isFlexible,
         timestamp: new Date().toISOString()
       }
     };

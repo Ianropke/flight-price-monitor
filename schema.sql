@@ -16,6 +16,7 @@ CREATE TABLE tracked_routes (
     drop_percentage_threshold DECIMAL(5, 2),
     currency VARCHAR(3) DEFAULT 'DKK' NOT NULL,
     status VARCHAR(10) DEFAULT 'active' NOT NULL,
+    trip_duration INTEGER,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     CONSTRAINT chk_iata_origin CHECK (length(origin_iata) = 3),
     CONSTRAINT chk_iata_destination CHECK (length(destination_iata) = 3),
