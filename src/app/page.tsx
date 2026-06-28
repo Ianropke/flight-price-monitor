@@ -53,7 +53,7 @@ export default function Home() {
     }
     setIsSeeding(true);
     try {
-      const res = await fetch('/api/seed');
+      const res = await fetch('/api/seed?secret=your-cron-secret');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Seed failed');
       alert('Databasen blev fyldt med testdata!');

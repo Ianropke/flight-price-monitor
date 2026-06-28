@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
 
-export async function GET() {
-  // Only allow seeding in development mode (safety check)
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not allowed in production' }, { status: 403 });
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const secret = searchParams.get('secret');
+  const expectedSecret = process.env.CRON_SECRET;
+
+  // Only allow seeding in development mode OR in production with a valid secret (safety check)
+  if (process.env.NODE_ENV === 'production' && (!expectedSecret || secret !== expectedSecret)) {
+    return NextResponse.json({ error: 'Ikke tilladt i produktion uden gyldig hemmelighed' }, { status: 403 });
   }
 
   try {
