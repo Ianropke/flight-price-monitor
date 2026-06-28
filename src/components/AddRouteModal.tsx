@@ -20,6 +20,11 @@ const POPULAR_AIRPORTS: Airport[] = [
   { code: 'CPH', name: 'Københavns Lufthavn', city: 'København', country: 'Danmark' },
   { code: 'BLL', name: 'Billund Lufthavn', city: 'Billund', country: 'Danmark' },
   { code: 'AAR', name: 'Aarhus Lufthavn', city: 'Aarhus', country: 'Danmark' },
+  { code: 'BOM', name: 'Chhatrapati Shivaji International Airport', city: 'Mumbai', country: 'Indien' },
+  { code: 'DEL', name: 'Indira Gandhi International Airport', city: 'New Delhi', country: 'Indien' },
+  { code: 'BKK', name: 'Suvarnabhumi Airport', city: 'Bangkok', country: 'Thailand' },
+  { code: 'HKG', name: 'Hong Kong International Airport', city: 'Hong Kong', country: 'Kina' },
+  { code: 'SYD', name: 'Kingsford Smith Airport', city: 'Sydney', country: 'Australien' },
   { code: 'OPO', name: 'Francisco Sá Carneiro Lufthavn', city: 'Porto', country: 'Portugal' },
   { code: 'EDI', name: 'Edinburgh Airport', city: 'Edinburgh', country: 'Skotland' },
   { code: 'JFK', name: 'John F. Kennedy Intl Airport', city: 'New York', country: 'USA' },
@@ -34,12 +39,19 @@ const POPULAR_AIRPORTS: Airport[] = [
   { code: 'DXB', name: 'Dubai International Airport', city: 'Dubai', country: 'Forenede Arabiske Emirater' },
   { code: 'SIN', name: 'Changi Airport', city: 'Singapore', country: 'Singapore' },
   { code: 'LAX', name: 'Los Angeles International Airport', city: 'Los Angeles', country: 'USA' },
+  { code: 'SFO', name: 'San Francisco International Airport', city: 'San Francisco', country: 'USA' },
+  { code: 'MIA', name: 'Miami International Airport', city: 'Miami', country: 'USA' },
+  { code: 'YYZ', name: 'Pearson International Airport', city: 'Toronto', country: 'Canada' },
   { code: 'AGP', name: 'Málaga Airport', city: 'Málaga', country: 'Spanien' },
   { code: 'PMI', name: 'Palma de Mallorca Airport', city: 'Palma de Mallorca', country: 'Spanien' },
+  { code: 'LPA', name: 'Gran Canaria Airport', city: 'Las Palmas / Gran Canaria', country: 'Spanien' },
+  { code: 'ALC', name: 'Alicante-Elche Airport', city: 'Alicante', country: 'Spanien' },
+  { code: 'AYT', name: 'Antalya Airport', city: 'Antalya', country: 'Tyrkiet' },
   { code: 'ATH', name: 'Eleftherios Venizelos Airport', city: 'Athen', country: 'Grækenland' },
   { code: 'LIS', name: 'Humberto Delgado Airport', city: 'Lissabon', country: 'Portugal' },
   { code: 'ARN', name: 'Arlanda Airport', city: 'Stockholm', country: 'Sverige' },
-  { code: 'OSL', name: 'Gardermoen Airport', city: 'Oslo', country: 'Norge' }
+  { code: 'OSL', name: 'Gardermoen Airport', city: 'Oslo', country: 'Norge' },
+  { code: 'KEF', name: 'Keflavík International Airport', city: 'Reykjavík', country: 'Island' }
 ];
 
 export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteModalProps) {
