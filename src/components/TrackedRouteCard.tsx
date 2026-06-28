@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Trash2, TrendingDown, TrendingUp, Bell, RefreshCw, Calendar, ArrowRight, EyeOff, Pencil } from 'lucide-react';
 import { RouteWithHistory } from '@/types';
+import { POPULAR_AIRPORTS } from '@/constants/airports';
 
 interface TrackedRouteCardProps {
   route: RouteWithHistory;
@@ -10,6 +11,11 @@ interface TrackedRouteCardProps {
   onRefresh: (id: string) => void;
   onEdit: (route: RouteWithHistory) => void;
 }
+
+const getCityName = (iata: string) => {
+  const airport = POPULAR_AIRPORTS.find(a => a.code === iata.toUpperCase());
+  return airport ? airport.city : iata;
+};
 
 export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }: TrackedRouteCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
@@ -193,12 +199,14 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
       <div className="p-6 border-b border-white/5 space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <div className="flex items-center space-x-2 text-xl font-bold tracking-wide font-outfit text-white">
-              <span>{route.origin_iata}</span>
-              <ArrowRight className="w-4 h-4 text-indigo-400" />
-              <span>{route.destination_iata}</span>
+            <div className="flex items-center flex-wrap gap-2 text-lg font-bold tracking-wide font-outfit text-white">
+              <span>{getCityName(route.origin_iata)}</span>
+              <span className="text-[10px] font-semibold text-indigo-300 uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 shrink-0">{route.origin_iata}</span>
+              <ArrowRight className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span>{getCityName(route.destination_iata)}</span>
+              <span className="text-[10px] font-semibold text-indigo-300 uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 shrink-0">{route.destination_iata}</span>
               {isInactive && (
-                <span className="ml-2 px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-red-500/20 text-red-400 border border-red-500/30 rounded-md flex items-center gap-1">
+                <span className="px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-red-500/20 text-red-400 border border-red-500/30 rounded-md flex items-center gap-1 shrink-0">
                   <EyeOff className="w-2.5 h-2.5" />
                   Inaktiv
                 </span>
