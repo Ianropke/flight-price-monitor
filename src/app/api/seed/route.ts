@@ -15,37 +15,39 @@ export async function GET(request: Request) {
     const supabase = createServiceRoleClient();
 
     // 1. Clear existing seed data safely
-    // Price history will cascade delete because of the foreign key constraint
     await supabase.from('tracked_routes').delete().is('user_id', null);
 
-    // 2. Insert mock routes
+    // 2. Insert mock routes for November 2026
     const routesData = [
       {
-        origin: 'CPH',
-        destination: 'JFK',
-        start_date: '2026-09-10',
-        end_date: '2026-09-24',
-        target_price: 3000,
-        drop_percentage: null,
+        origin_iata: 'CPH',
+        destination_iata: 'OPO',
+        departure_date: '2026-11-12',
+        return_date: '2026-11-19',
+        target_price_threshold: 1200,
+        drop_percentage_threshold: null,
         currency: 'DKK',
+        status: 'active'
       },
       {
-        origin: 'LHR',
-        destination: 'HND',
-        start_date: '2026-10-05',
-        end_date: '2026-10-19',
-        target_price: null,
-        drop_percentage: 15,
+        origin_iata: 'CPH',
+        destination_iata: 'EDI',
+        departure_date: '2026-11-15',
+        return_date: '2026-11-22',
+        target_price_threshold: null,
+        drop_percentage_threshold: 15,
         currency: 'DKK',
+        status: 'active'
       },
       {
-        origin: 'CPH',
-        destination: 'BCN',
-        start_date: '2026-08-01',
-        end_date: '2026-08-08',
-        target_price: 800,
-        drop_percentage: 10,
+        origin_iata: 'CPH',
+        destination_iata: 'JFK',
+        departure_date: '2026-11-10',
+        return_date: '2026-11-24',
+        target_price_threshold: 3000,
+        drop_percentage_threshold: 10,
         currency: 'DKK',
+        status: 'active'
       }
     ];
 
@@ -60,7 +62,7 @@ export async function GET(request: Request) {
 
     // 3. Generate history data for each route
     const now = new Date();
-    const historyData: { route_id: string; lowest_price: number; fetch_date: string }[] = [];
+    const historyData: { route_id: string; lowest_price_found: number; currency: string; fetch_date: string }[] = [];
 
     // Helper to generate ISO strings at offsets
     const getPastDateString = (daysAgo: number) => {
@@ -69,41 +71,44 @@ export async function GET(request: Request) {
       return d.toISOString();
     };
 
-    // Route 1 (CPH -> JFK) prices: descending down to target threshold of 3000 (final is 2950)
-    const route1 = insertedRoutes.find(r => r.destination === 'JFK');
+    // Route 1 (CPH -> OPO) prices: descending down to target threshold of 1200 (final is 1150)
+    const route1 = insertedRoutes.find(r => r.destination_iata === 'OPO');
     if (route1) {
-      const prices = [3500, 3420, 3350, 3190, 3250, 3100, 2950];
+      const prices = [1500, 1420, 1350, 1290, 1310, 1250, 1150];
       prices.forEach((price, idx) => {
         historyData.push({
           route_id: route1.id,
-          lowest_price: price,
-          fetch_date: getPastDateString((prices.length - 1 - idx) * 4), // spaced over ~24 days
+          lowest_price_found: price,
+          currency: route1.currency,
+          fetch_date: getPastDateString((prices.length - 1 - idx) * 1), // 1 point per day for last 7 days
         });
       });
     }
 
-    // Route 2 (LHR -> HND) prices: volatile then a sudden 20% drop (from ~7200 avg to 5800)
-    const route2 = insertedRoutes.find(r => r.destination === 'HND');
+    // Route 2 (CPH -> EDI) prices: volatile then a sudden 20% drop (from ~1000 avg to 790)
+    const route2 = insertedRoutes.find(r => r.destination_iata === 'EDI');
     if (route2) {
-      const prices = [7300, 7150, 7250, 7200, 7350, 7180, 5800];
+      const prices = [1050, 980, 1020, 990, 1010, 970, 790];
       prices.forEach((price, idx) => {
         historyData.push({
           route_id: route2.id,
-          lowest_price: price,
-          fetch_date: getPastDateString((prices.length - 1 - idx) * 4),
+          lowest_price_found: price,
+          currency: route2.currency,
+          fetch_date: getPastDateString((prices.length - 1 - idx) * 1),
         });
       });
     }
 
-    // Route 3 (CPH -> BCN) prices: fluctuating around 1000 DKK, target is 800 (not met)
-    const route3 = insertedRoutes.find(r => r.destination === 'BCN');
+    // Route 3 (CPH -> JFK) prices: fluctuating around 3200 DKK, target is 3000 (not met)
+    const route3 = insertedRoutes.find(r => r.destination_iata === 'JFK');
     if (route3) {
-      const prices = [1150, 1120, 1080, 1190, 1100, 1050, 1070];
+      const prices = [3400, 3320, 3280, 3350, 3200, 3250, 3210];
       prices.forEach((price, idx) => {
         historyData.push({
           route_id: route3.id,
-          lowest_price: price,
-          fetch_date: getPastDateString((prices.length - 1 - idx) * 4),
+          lowest_price_found: price,
+          currency: route3.currency,
+          fetch_date: getPastDateString((prices.length - 1 - idx) * 1),
         });
       });
     }
@@ -118,7 +123,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: 'Database seeded successfully with routes and price histories.',
+      message: 'Database seeded successfully with routes and 7-day price histories.',
       seededCount: {
         routes: insertedRoutes.length,
         history: historyData.length

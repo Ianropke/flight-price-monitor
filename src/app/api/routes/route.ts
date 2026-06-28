@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerSideClient } from '@/lib/supabase';
-import { flightService } from '@/services/flightApi';
+import { flightService } from '@/services/serpApi';
 
 // GET: Retrieve all tracked routes (with their price history)
 export async function GET() {
@@ -19,7 +19,8 @@ export async function GET() {
           id,
           route_id,
           fetch_date,
-          lowest_price,
+          lowest_price_found,
+          currency,
           created_at
         )
       `)
@@ -59,20 +60,28 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { origin, destination, start_date, end_date, target_price, drop_percentage, currency = 'DKK' } = body;
+    const { 
+      origin_iata, 
+      destination_iata, 
+      departure_date, 
+      return_date, 
+      target_price_threshold, 
+      drop_percentage_threshold, 
+      currency = 'DKK' 
+    } = body;
 
     // Validation
-    if (!origin || origin.length !== 3) {
-      return NextResponse.json({ error: 'Origin must be a 3-letter IATA code' }, { status: 400 });
+    if (!origin_iata || origin_iata.length !== 3) {
+      return NextResponse.json({ error: 'Afrejse skal være en 3-bogstavs IATA-kode (f.eks. CPH)' }, { status: 400 });
     }
-    if (!destination || destination.length !== 3) {
-      return NextResponse.json({ error: 'Destination must be a 3-letter IATA code' }, { status: 400 });
+    if (!destination_iata || destination_iata.length !== 3) {
+      return NextResponse.json({ error: 'Destination skal være en 3-bogstavs IATA-kode (f.eks. OPO)' }, { status: 400 });
     }
-    if (!start_date || !end_date) {
-      return NextResponse.json({ error: 'Start date and End date are required' }, { status: 400 });
+    if (!departure_date || !return_date) {
+      return NextResponse.json({ error: 'Afrejse- og hjemrejsedato er påkrævet' }, { status: 400 });
     }
-    if (new Date(start_date) > new Date(end_date)) {
-      return NextResponse.json({ error: 'Start date must be before or equal to End date' }, { status: 400 });
+    if (new Date(departure_date) > new Date(return_date)) {
+      return NextResponse.json({ error: 'Afrejsedato skal være før eller lig med hjemrejsedato' }, { status: 400 });
     }
 
     const supabase = await createServerSideClient();
@@ -83,13 +92,14 @@ export async function POST(request: Request) {
       .from('tracked_routes')
       .insert({
         user_id: user?.id || null, // fallback to guest if not authenticated
-        origin: origin.toUpperCase(),
-        destination: destination.toUpperCase(),
-        start_date,
-        end_date,
-        target_price: target_price ? parseFloat(target_price) : null,
-        drop_percentage: drop_percentage ? parseFloat(drop_percentage) : null,
-        currency: currency.toUpperCase()
+        origin_iata: origin_iata.toUpperCase(),
+        destination_iata: destination_iata.toUpperCase(),
+        departure_date,
+        return_date,
+        target_price_threshold: target_price_threshold ? parseFloat(target_price_threshold) : null,
+        drop_percentage_threshold: drop_percentage_threshold ? parseFloat(drop_percentage_threshold) : null,
+        currency: currency.toUpperCase(),
+        status: 'active'
       })
       .select()
       .single();
@@ -102,10 +112,10 @@ export async function POST(request: Request) {
     let initialPrice: number | null = null;
     try {
       const priceResult = await flightService.fetchLowestPrice({
-        origin: route.origin,
-        destination: route.destination,
-        departureDate: route.start_date,
-        returnDate: route.end_date, // if roundtrip, search handles return date
+        origin: route.origin_iata,
+        destination: route.destination_iata,
+        departureDate: route.departure_date,
+        returnDate: route.return_date,
         currency: route.currency
       });
 
@@ -116,12 +126,13 @@ export async function POST(request: Request) {
         .from('price_history')
         .insert({
           route_id: route.id,
-          lowest_price: initialPrice,
+          lowest_price_found: initialPrice,
+          currency: route.currency,
           raw_response: priceResult.rawPayload
         });
     } catch (apiError: any) {
       console.warn(`Could not fetch initial price for route ${route.id}:`, apiError.message);
-      // We still return the successfully created route, even if Amadeus failed at this moment
+      // Return the successfully created route even if initial fetch failed
     }
 
     // Refetch the route with its new history to return complete object
@@ -133,14 +144,22 @@ export async function POST(request: Request) {
           id,
           route_id,
           fetch_date,
-          lowest_price,
+          lowest_price_found,
+          currency,
           created_at
         )
       `)
       .eq('id', route.id)
       .single();
 
-    return NextResponse.json(finalRoute, { status: 201 });
+    const sortedHistory = [...(finalRoute.price_history || [])].sort(
+      (a, b) => new Date(a.fetch_date).getTime() - new Date(b.fetch_date).getTime()
+    );
+
+    return NextResponse.json({
+      ...finalRoute,
+      price_history: sortedHistory
+    }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating route:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
@@ -216,12 +235,17 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Route not found or unauthorized' }, { status: 404 });
     }
 
-    // Fetch the latest price from Amadeus API
+    // Check if route is already inactive
+    if (route.status === 'inactive') {
+      return NextResponse.json({ error: 'Ruten er inaktiv (afrejsedato er overskredet)' }, { status: 400 });
+    }
+
+    // Fetch the latest price from SerpApi
     const priceResult = await flightService.fetchLowestPrice({
-      origin: route.origin,
-      destination: route.destination,
-      departureDate: route.start_date,
-      returnDate: route.end_date,
+      origin: route.origin_iata,
+      destination: route.destination_iata,
+      departureDate: route.departure_date,
+      returnDate: route.return_date,
       currency: route.currency
     });
 
@@ -230,7 +254,8 @@ export async function PUT(request: Request) {
       .from('price_history')
       .insert({
         route_id: route.id,
-        lowest_price: priceResult.lowestPrice,
+        lowest_price_found: priceResult.lowestPrice,
+        currency: route.currency,
         raw_response: priceResult.rawPayload
       });
 
@@ -247,7 +272,8 @@ export async function PUT(request: Request) {
           id,
           route_id,
           fetch_date,
-          lowest_price,
+          lowest_price_found,
+          currency,
           created_at
         )
       `)
@@ -268,4 +294,3 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
-

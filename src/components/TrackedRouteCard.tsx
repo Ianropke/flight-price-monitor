@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, TrendingDown, TrendingUp, Bell, RefreshCw, Calendar, ArrowRight } from 'lucide-react';
+import { Trash2, TrendingDown, TrendingUp, Bell, RefreshCw, Calendar, ArrowRight, EyeOff } from 'lucide-react';
 import { RouteWithHistory } from '@/types';
 
 interface TrackedRouteCardProps {
@@ -17,10 +17,11 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
 
   const history = route.price_history || [];
   const latestFetch = history[history.length - 1];
-  const currentPrice = latestFetch ? latestFetch.lowest_price : null;
+  const currentPrice = latestFetch ? latestFetch.lowest_price_found : null;
+  const isInactive = route.status === 'inactive';
 
   // Calculate stats
-  const priceValues = history.map(h => h.lowest_price);
+  const priceValues = history.map(h => h.lowest_price_found);
   const minPrice = priceValues.length > 0 ? Math.min(...priceValues) : 0;
   const maxPrice = priceValues.length > 0 ? Math.max(...priceValues) : 0;
   const avgPrice = priceValues.length > 0 
@@ -31,25 +32,25 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
   let targetMet = false;
   let targetDiffText = '';
   
-  if (currentPrice !== null) {
-    if (route.target_price) {
-      targetMet = currentPrice <= route.target_price;
-      const diff = route.target_price - currentPrice;
+  if (currentPrice !== null && !isInactive) {
+    if (route.target_price_threshold) {
+      targetMet = currentPrice <= route.target_price_threshold;
+      const diff = route.target_price_threshold - currentPrice;
       targetDiffText = diff >= 0 
         ? `${diff.toFixed(0)} ${route.currency} under målpris`
         : `${Math.abs(diff).toFixed(0)} ${route.currency} over målpris`;
-    } else if (route.drop_percentage && avgPrice > 0) {
+    } else if (route.drop_percentage_threshold && avgPrice > 0) {
       const dropFromAvg = ((avgPrice - currentPrice) / avgPrice) * 100;
-      targetMet = dropFromAvg >= route.drop_percentage;
+      targetMet = dropFromAvg >= route.drop_percentage_threshold;
       targetDiffText = dropFromAvg > 0
-        ? `${dropFromAvg.toFixed(1)}% fald fra gennemsnit`
-        : `${Math.abs(dropFromAvg).toFixed(1)}% stigning fra gennemsnit`;
+        ? `${dropFromAvg.toFixed(1)}% fald fra gns (7-dage)`
+        : `${Math.abs(dropFromAvg).toFixed(1)}% stigning fra gns (7-dage)`;
     }
   }
 
   // Handle actions
   const handleDelete = async () => {
-    if (!confirm(`Er du sikker på, at du vil stoppe med at overvåge flyvninger fra ${route.origin} til ${route.destination}?`)) {
+    if (!confirm(`Er du sikker på, at du vil stoppe med at overvåge flyvninger fra ${route.origin_iata} til ${route.destination_iata}?`)) {
       return;
     }
     setIsDeleting(true);
@@ -64,9 +65,9 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
   };
 
   const handleRefresh = async () => {
+    if (isInactive) return;
     setIsRefreshing(true);
     try {
-      // Securely refresh this specific route's price on the server
       const res = await fetch(`/api/routes?id=${route.id}`, { method: 'PUT' });
       if (!res.ok) throw new Error('Refresh failed');
       onRefresh(route.id);
@@ -93,8 +94,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
 
     points = history.map((h, i) => {
       const x = padding + (i * (svgWidth - padding * 2)) / (history.length - 1);
-      // Invert Y coordinate so high price is at the top, low at bottom
-      const y = svgHeight - padding - ((h.lowest_price - minVal) * (svgHeight - padding * 2)) / valueRange;
+      const y = svgHeight - padding - ((h.lowest_price_found - minVal) * (svgHeight - padding * 2)) / valueRange;
       
       const dateFormatted = new Date(h.fetch_date).toLocaleDateString(undefined, {
         month: 'short',
@@ -103,7 +103,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
         minute: '2-digit'
       });
 
-      return { x, y, price: h.lowest_price, date: dateFormatted };
+      return { x, y, price: h.lowest_price_found, date: dateFormatted };
     });
 
     pathD = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
@@ -115,7 +115,6 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
     const rect = e.currentTarget.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     
-    // Find closest point horizontally
     let closest = points[0];
     let minDiff = Math.abs(points[0].x - (mouseX / rect.width) * svgWidth);
 
@@ -127,7 +126,6 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
       }
     });
 
-    // Update state to render interactive tooltip circle & panel
     setHoveredPoint({
       price: closest.price,
       date: closest.date,
@@ -146,34 +144,42 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
 
   return (
     <div className={`glass-panel rounded-2xl border transition-card flex flex-col justify-between overflow-hidden ${
-      targetMet 
-        ? 'border-emerald-500/30 bg-emerald-950/15 shadow-emerald-500/5' 
-        : 'border-white/5 hover:border-indigo-500/25 bg-gray-950/40'
+      isInactive
+        ? 'border-white/5 bg-gray-950/20 opacity-60 hover:opacity-80'
+        : targetMet 
+          ? 'border-emerald-500/30 bg-emerald-950/15 shadow-emerald-500/5' 
+          : 'border-white/5 hover:border-indigo-500/25 bg-gray-950/40'
     }`}>
       {/* Card Header */}
       <div className="p-6 border-b border-white/5 space-y-4">
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center space-x-2 text-xl font-bold tracking-wide font-outfit text-white">
-              <span>{route.origin}</span>
+              <span>{route.origin_iata}</span>
               <ArrowRight className="w-4 h-4 text-indigo-400" />
-              <span>{route.destination}</span>
+              <span>{route.destination_iata}</span>
+              {isInactive && (
+                <span className="ml-2 px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-red-500/20 text-red-400 border border-red-500/30 rounded-md flex items-center gap-1">
+                  <EyeOff className="w-2.5 h-2.5" />
+                  Inaktiv
+                </span>
+              )}
             </div>
             
             <div className="flex items-center space-x-1.5 mt-1 text-xs text-gray-400 font-medium">
               <Calendar className="w-3.5 h-3.5" />
-              <span>{formattedDate(route.start_date)}</span>
+              <span>{formattedDate(route.departure_date)}</span>
               <span>•</span>
-              <span>{formattedDate(route.end_date)}</span>
+              <span>{formattedDate(route.return_date)}</span>
             </div>
           </div>
 
           <div className="flex items-center space-x-1">
             <button
               onClick={handleRefresh}
-              disabled={isRefreshing}
-              title="Opdater flypriser"
-              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+              disabled={isRefreshing || isInactive}
+              title={isInactive ? "Inaktive ruter kan ikke opdateres" : "Opdater flypriser"}
+              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-30"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-400' : ''}`} />
             </button>
@@ -210,18 +216,23 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
               Grænseværdi
             </span>
             <div className="text-sm font-bold text-white flex items-center space-x-1">
-              {route.target_price ? (
+              {route.target_price_threshold ? (
                 <>
-                  <span>≤ {route.target_price.toLocaleString()}</span>
+                  <span>≤ {route.target_price_threshold.toLocaleString()}</span>
                   <span className="text-[10px] font-bold text-gray-400">{route.currency}</span>
                 </>
               ) : (
-                <span>-{route.drop_percentage}% fra gns</span>
+                <span>-{route.drop_percentage_threshold}% fra gns</span>
               )}
             </div>
-            {currentPrice !== null && (
+            {currentPrice !== null && !isInactive && (
               <span className={`text-[10px] block font-semibold ${targetMet ? 'text-emerald-400' : 'text-gray-400'}`}>
                 {targetDiffText}
+              </span>
+            )}
+            {isInactive && (
+              <span className="text-[10px] block font-semibold text-red-400">
+                Udløbet
               </span>
             )}
           </div>
@@ -239,7 +250,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
               </span>
               <span className="flex items-center gap-1">
                 <TrendingUp className="w-3 h-3 text-red-400" /> 
-                Max: {maxPrice.toLocaleString()}
+                Maks: {maxPrice.toLocaleString()}
               </span>
             </div>
             
@@ -297,7 +308,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
                 <path
                   d={pathD}
                   fill="none"
-                  stroke={`url(#line-grad-${route.id})`}
+                  stroke={isInactive ? "rgba(156, 163, 175, 0.4)" : `url(#line-grad-${route.id})`}
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -322,7 +333,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
                       cy={hoveredPoint.y}
                       r="5"
                       fill="#ffffff"
-                      stroke="#6366f1"
+                      stroke={isInactive ? "#9ca3af" : "#6366f1"}
                       strokeWidth="3"
                       className="shadow-lg shadow-indigo-600/50"
                     />

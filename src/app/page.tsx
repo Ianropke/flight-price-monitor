@@ -48,7 +48,7 @@ export default function Home() {
 
   // Run dummy DB seed action
   const handleSeedDatabase = async () => {
-    if (!confirm('Dette vil fylde databasen med testruter og historiske prispunkter. Vil du fortsætte?')) {
+    if (!confirm('Dette vil fylde databasen med testruter (CPH-OPO, CPH-EDI osv.) og historiske prispunkter. Vil du fortsætte?')) {
       return;
     }
     setIsSeeding(true);
@@ -84,19 +84,25 @@ export default function Home() {
   };
 
   // Calculate statistics
-  const activeRoutesCount = routes.length;
-  const alertHitsCount = routes.filter(r => {
+  const activeRoutes = routes.filter(r => r.status === 'active');
+  const activeRoutesCount = activeRoutes.length;
+  
+  const alertHitsCount = activeRoutes.filter(r => {
     const latest = r.price_history?.[r.price_history.length - 1];
     if (!latest) return false;
     
-    if (r.target_price) {
-      return latest.lowest_price <= r.target_price;
+    if (r.target_price_threshold) {
+      return latest.lowest_price_found <= r.target_price_threshold;
     }
     
-    if (r.drop_percentage && r.price_history.length >= 2) {
-      const historyPrices = r.price_history.map(h => h.lowest_price).filter((_, idx) => idx < r.price_history.length - 1);
+    if (r.drop_percentage_threshold && r.price_history.length >= 2) {
+      // 7-day average drop check (excluding the last one)
+      const historyPrices = r.price_history
+        .map(h => h.lowest_price_found)
+        .filter((_, idx) => idx < r.price_history.length - 1);
+      
       const avg = historyPrices.reduce((a, b) => a + b, 0) / historyPrices.length;
-      return latest.lowest_price <= avg * (1 - r.drop_percentage / 100);
+      return latest.lowest_price_found <= avg * (1 - r.drop_percentage_threshold / 100);
     }
     
     return false;
@@ -116,7 +122,7 @@ export default function Home() {
               Flypris-<span className="text-indigo-400 glow-text-indigo">Monitor</span>
             </h1>
             <p className="text-xs font-semibold text-gray-400 mt-0.5 tracking-wide uppercase">
-              Automatiseret flyprisskraber & alarm-motor
+              Automatiseret Google Flights (SerpApi) scraper
             </p>
           </div>
         </div>
@@ -153,9 +159,9 @@ export default function Home() {
             <Activity className="w-6 h-6 text-indigo-400" />
           </div>
           <div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Overvågede ruter</span>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Aktive overvågninger</span>
             <div className="text-3xl font-extrabold tracking-tight text-white mt-1">
-              {isLoading ? '...' : activeRoutesCount}
+              {isLoading ? '...' : activeRoutesCount} <span className="text-sm font-normal text-gray-500">/ {routes.length} total</span>
             </div>
           </div>
         </div>
@@ -177,7 +183,7 @@ export default function Home() {
             <RefreshCw className="w-6 h-6 text-violet-400" />
           </div>
           <div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Baggrunds-Cronjobs</span>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Vercel Cronjob</span>
             <button
               onClick={handleRunCronSimulation}
               disabled={isCronRunning}
@@ -233,7 +239,7 @@ export default function Home() {
       {/* Main Tracked Routes Cards Grid */}
       <section className="space-y-6">
         <h2 className="text-xl font-bold tracking-wide font-outfit text-white flex items-center gap-2">
-          <span>Aktive ruter under overvågning</span>
+          <span>Ruter under overvågning</span>
           <span className="px-2 py-0.5 rounded-full bg-white/5 text-xs text-gray-400 font-bold border border-white/5">
             {routes.length}
           </span>

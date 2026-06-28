@@ -10,13 +10,13 @@ interface AddRouteModalProps {
 }
 
 export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteModalProps) {
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [originIata, setOriginIata] = useState('');
+  const [destinationIata, setDestinationIata] = useState('');
+  const [departureDate, setDepartureDate] = useState('');
+  const [returnDate, setReturnDate] = useState('');
   const [targetType, setTargetType] = useState<'absolute' | 'percentage'>('absolute');
-  const [targetPrice, setTargetPrice] = useState('');
-  const [dropPercentage, setDropPercentage] = useState('');
+  const [targetPriceThreshold, setTargetPriceThreshold] = useState('');
+  const [dropPercentageThreshold, setDropPercentageThreshold] = useState('');
   const [currency, setCurrency] = useState('DKK');
   
   const [isLoading, setIsLoading] = useState(false);
@@ -29,15 +29,15 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
     setError('');
     
     // Validations
-    if (origin.length !== 3 || destination.length !== 3) {
+    if (originIata.length !== 3 || destinationIata.length !== 3) {
       setError('Lufthavnskoder skal være præcis 3 tegn (f.eks. CPH)');
       return;
     }
-    if (!startDate || !endDate) {
+    if (!departureDate || !returnDate) {
       setError('Vælg venligst både afrejse- og hjemrejsedato');
       return;
     }
-    if (new Date(startDate) > new Date(endDate)) {
+    if (new Date(departureDate) > new Date(returnDate)) {
       setError('Afrejsedato skal være før eller lig med hjemrejsedato');
       return;
     }
@@ -51,12 +51,12 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          origin: origin.toUpperCase().trim(),
-          destination: destination.toUpperCase().trim(),
-          start_date: startDate,
-          end_date: endDate,
-          target_price: targetType === 'absolute' ? parseFloat(targetPrice) || null : null,
-          drop_percentage: targetType === 'percentage' ? parseFloat(dropPercentage) || null : null,
+          origin_iata: originIata.toUpperCase().trim(),
+          destination_iata: destinationIata.toUpperCase().trim(),
+          departure_date: departureDate,
+          return_date: returnDate,
+          target_price_threshold: targetType === 'absolute' ? parseFloat(targetPriceThreshold) || null : null,
+          drop_percentage_threshold: targetType === 'percentage' ? parseFloat(dropPercentageThreshold) || null : null,
           currency: currency.toUpperCase()
         }),
       });
@@ -69,12 +69,12 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
 
       onSuccess(data);
       // Reset form
-      setOrigin('');
-      setDestination('');
-      setStartDate('');
-      setEndDate('');
-      setTargetPrice('');
-      setDropPercentage('');
+      setOriginIata('');
+      setDestinationIata('');
+      setDepartureDate('');
+      setReturnDate('');
+      setTargetPriceThreshold('');
+      setDropPercentageThreshold('');
       onClose();
     } catch (err: any) {
       setError(err.message || 'Der opstod en uventet fejl');
@@ -122,8 +122,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
                 type="text"
                 placeholder="CPH"
                 maxLength={3}
-                value={origin}
-                onChange={(e) => setOrigin(e.target.value.toUpperCase())}
+                value={originIata}
+                onChange={(e) => setOriginIata(e.target.value.toUpperCase())}
                 required
                 className="w-full px-4 py-2.5 rounded-xl glass-input text-lg font-bold tracking-widest text-center text-white"
               />
@@ -136,10 +136,10 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
               </label>
               <input
                 type="text"
-                placeholder="JFK"
+                placeholder="OPO"
                 maxLength={3}
-                value={destination}
-                onChange={(e) => setDestination(e.target.value.toUpperCase())}
+                value={destinationIata}
+                onChange={(e) => setDestinationIata(e.target.value.toUpperCase())}
                 required
                 className="w-full px-4 py-2.5 rounded-xl glass-input text-lg font-bold tracking-widest text-center text-white"
               />
@@ -156,8 +156,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
               <input
                 type="date"
                 min={new Date().toISOString().split('T')[0]}
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                value={departureDate}
+                onChange={(e) => setDepartureDate(e.target.value)}
                 required
                 className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
               />
@@ -170,9 +170,9 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
               </label>
               <input
                 type="date"
-                min={startDate || new Date().toISOString().split('T')[0]}
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                min={departureDate || new Date().toISOString().split('T')[0]}
+                value={returnDate}
+                onChange={(e) => setReturnDate(e.target.value)}
                 required
                 className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
               />
@@ -220,10 +220,10 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
                   <div className="relative">
                     <input
                       type="number"
-                      placeholder="f.eks. 3500"
+                      placeholder="f.eks. 1200"
                       min={0}
-                      value={targetPrice}
-                      onChange={(e) => setTargetPrice(e.target.value)}
+                      value={targetPriceThreshold}
+                      onChange={(e) => setTargetPriceThreshold(e.target.value)}
                       required={targetType === 'absolute'}
                       className="w-full pl-4 pr-16 py-2.5 rounded-xl glass-input text-base text-white"
                     />
@@ -244,8 +244,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
                       placeholder="f.eks. 15"
                       min={1}
                       max={99}
-                      value={dropPercentage}
-                      onChange={(e) => setDropPercentage(e.target.value)}
+                      value={dropPercentageThreshold}
+                      onChange={(e) => setDropPercentageThreshold(e.target.value)}
                       required={targetType === 'percentage'}
                       className="w-full pl-4 pr-12 py-2.5 rounded-xl glass-input text-base text-white"
                     />
@@ -277,7 +277,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
           <div className="text-xs text-gray-400/80 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">
             {targetType === 'absolute' 
               ? `Du modtager en alarm, hvis flyprisen falder under den grænseværdi, du har angivet ovenfor.`
-              : `Du modtager en alarm, hvis prisen falder med ${dropPercentage || 'X'}% eller mere i forhold til rutens 30-dages løbende gennemsnit.`
+              : `Du modtager en alarm, hvis prisen falder med ${dropPercentageThreshold || 'X'}% eller mere i forhold til rutens 7-dages løbende gennemsnit.`
             }
           </div>
 

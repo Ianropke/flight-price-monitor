@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
-import { flightService } from '@/services/flightApi';
+import { flightService } from '@/services/serpApi';
 
-// SendGrid / Email notification wrapper placeholder
+// Email alert log mock
 async function sendEmailAlert(
   route: any,
   currentPrice: number,
@@ -10,40 +10,26 @@ async function sendEmailAlert(
   thresholdValue: number,
   comparisonPrice: number
 ) {
-  const subject = `✈️ Price Alert: Flight drop on ${route.origin} to ${route.destination}!`;
+  const subject = `✈️ Prisfalds-alarm: Flypris faldet på ${route.origin_iata} til ${route.destination_iata}!`;
   
   const textContent = `
-    Flight Price Monitor Alert!
+    Alarm fra Flypris-Monitor!
     
-    A price drop was detected for your tracked route:
-    Route: ${route.origin} ✈️ ${route.destination}
-    Dates: ${route.start_date} to ${route.end_date}
+    Et prisfald er registreret på din overvågede rute:
+    Rute: ${route.origin_iata} ✈️ ${route.destination_iata}
+    Datoer: ${route.departure_date} til ${route.return_date}
     
-    Current Lowest Price: ${currentPrice} ${route.currency}
+    Aktuel laveste pris fundet: ${currentPrice} ${route.currency}
     
-    Trigger: Met ${alertType} threshold!
-    - Target: ${thresholdValue} ${alertType === 'absolute' ? route.currency : '%'}
-    - Reference Price: ${comparisonPrice.toFixed(2)} ${route.currency}
+    Udløser: Mødte ${alertType === 'absolute' ? 'målpris' : 'procentvis fald'} grænseværdien!
+    - Grænse: ${thresholdValue} ${alertType === 'absolute' ? route.currency : '%'}
+    - Referencepris: ${comparisonPrice.toFixed(2)} ${route.currency}
     
-    Check the dashboard to book now!
+    Besøg dit dashboard for at bestille rejsen nu!
   `;
 
-  console.log(`[NOTIFICATION SENT] Email Subject: "${subject}"`);
-  console.log(`[NOTIFICATION BODY]:\n${textContent}`);
-
-  // Developer Configuration Note:
-  // To enable SendGrid, you would uncomment this and add @sendgrid/mail
-  /*
-  const sgMail = require('@sendgrid/mail');
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  const msg = {
-    to: 'user@example.com', // Retrieve from route.user_id if mapped to auth.users
-    from: 'alerts@yourdomain.com',
-    subject: subject,
-    text: textContent,
-  };
-  await sgMail.send(msg);
-  */
+  console.log(`[ALARM SENDT] Emne: "${subject}"`);
+  console.log(`[ALARM INDHOLD]:\n${textContent}`);
 }
 
 export async function GET(request: Request) {
@@ -60,105 +46,119 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Initialize service role client (bypasses RLS to monitor all users' routes)
     const supabase = createServiceRoleClient();
+    const todayStr = new Date().toISOString().split('T')[0];
 
-    // Fetch all tracked routes
+    // 1. Deaktiver automatisk ruter hvor afrejsedatoen er overskredet (departure_date < i dag)
+    const { error: deactivateError } = await supabase
+      .from('tracked_routes')
+      .update({ status: 'inactive' })
+      .lt('departure_date', todayStr)
+      .eq('status', 'active');
+
+    if (deactivateError) {
+      console.error('Error auto-deactivating expired routes:', deactivateError.message);
+    }
+
+    // 2. Hent alle aktive ruter (status = active og departure_date >= i dag)
     const { data: routes, error: routesError } = await supabase
       .from('tracked_routes')
-      .select('*');
+      .select('*')
+      .eq('status', 'active')
+      .gte('departure_date', todayStr);
 
     if (routesError) {
       return NextResponse.json({ error: routesError.message }, { status: 500 });
     }
 
     if (!routes || routes.length === 0) {
-      return NextResponse.json({ message: 'No routes currently tracked' });
+      return NextResponse.json({ message: 'Ingen aktive ruter at overvåge i øjeblikket' });
     }
 
     const results = [];
 
-    // Iterate through all active routes and update prices
+    // 3. Kør prisovervågning for hver rute
     for (const route of routes) {
-      const routeLabel = `${route.origin} -> ${route.destination} (${route.start_date})`;
-      console.log(`Processing route price update: ${routeLabel}...`);
+      const routeLabel = `${route.origin_iata} -> ${route.destination_iata} (${route.departure_date})`;
+      console.log(`Prisskraber: Tjekker priser for ${routeLabel}...`);
 
       try {
-        // Fetch current lowest price from Amadeus API
+        // Hent den seneste flypris
         const priceResult = await flightService.fetchLowestPrice({
-          origin: route.origin,
-          destination: route.destination,
-          departureDate: route.start_date,
-          returnDate: route.end_date,
+          origin: route.origin_iata,
+          destination: route.destination_iata,
+          departureDate: route.departure_date,
+          returnDate: route.return_date,
           currency: route.currency,
         });
 
         const currentPrice = priceResult.lowestPrice;
 
-        // Insert new price into history
+        // Gem prishistorik
         const { error: historyError } = await supabase
           .from('price_history')
           .insert({
             route_id: route.id,
-            lowest_price: currentPrice,
+            lowest_price_found: currentPrice,
+            currency: route.currency,
             raw_response: priceResult.rawPayload
           });
 
         if (historyError) {
-          console.error(`Error saving price history for ${routeLabel}:`, historyError.message);
-          results.push({ routeId: route.id, routeLabel, status: 'error', error: `DB Error: ${historyError.message}` });
+          console.error(`Databasefejl ved gemning af historik for ${routeLabel}:`, historyError.message);
+          results.push({ routeId: route.id, routeLabel, status: 'error', error: `DB-fejl: ${historyError.message}` });
           continue;
         }
 
         let alertTriggered = false;
         let alertDetails = {};
 
-        // 1. Evaluate Absolute Threshold
-        if (route.target_price && currentPrice <= parseFloat(route.target_price)) {
+        // A. Evaluer absolut målpris tærskel
+        if (route.target_price_threshold && currentPrice <= parseFloat(route.target_price_threshold)) {
           alertTriggered = true;
-          alertDetails = { type: 'absolute', target: parseFloat(route.target_price) };
+          alertDetails = { type: 'absolute', target: parseFloat(route.target_price_threshold) };
           await sendEmailAlert(
             route,
             currentPrice,
             'absolute',
-            parseFloat(route.target_price),
-            parseFloat(route.target_price)
+            parseFloat(route.target_price_threshold),
+            parseFloat(route.target_price_threshold)
           );
         }
 
-        // 2. Evaluate Percentage Drop from 30-day Average
-        if (route.drop_percentage && !alertTriggered) {
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        // B. Evaluer procentvis fald i forhold til de sidste 7 dages gennemsnit
+        if (route.drop_percentage_threshold && !alertTriggered) {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-          // Get price history for past 30 days (excluding the one we just inserted to prevent bias)
+          // Hent prishistorik for de sidste 7 dage (undtagen den netop indsatte)
           const { data: pastHistory } = await supabase
             .from('price_history')
-            .select('lowest_price')
+            .select('lowest_price_found')
             .eq('route_id', route.id)
-            .gte('fetch_date', thirtyDaysAgo.toISOString())
+            .gte('fetch_date', sevenDaysAgo.toISOString())
             .order('fetch_date', { ascending: false });
 
-          // Exclude the first index if it's the one we just inserted
+          // Filtrer det senest indsatte element fra
           const historicalPrices = pastHistory
-            ?.map(h => parseFloat(h.lowest_price as any))
+            ?.map(h => parseFloat(h.lowest_price_found as any))
             .filter((_, idx) => idx > 0) || [];
 
           if (historicalPrices.length > 0) {
             const sum = historicalPrices.reduce((total, p) => total + p, 0);
-            const average30Day = sum / historicalPrices.length;
-            const thresholdPercentage = parseFloat(route.drop_percentage);
-            const targetDropPrice = average30Day * (1 - thresholdPercentage / 100);
+            const average7Day = sum / historicalPrices.length;
+            const thresholdPercentage = parseFloat(route.drop_percentage_threshold);
+            const targetDropPrice = average7Day * (1 - thresholdPercentage / 100);
 
             if (currentPrice <= targetDropPrice) {
               alertTriggered = true;
-              alertDetails = { type: 'percentage', target: thresholdPercentage, average30Day };
+              alertDetails = { type: 'percentage', target: thresholdPercentage, average7Day };
               await sendEmailAlert(
                 route,
                 currentPrice,
                 'percentage',
                 thresholdPercentage,
-                average30Day
+                average7Day
               );
             }
           }
@@ -174,12 +174,12 @@ export async function GET(request: Request) {
         });
 
       } catch (err: any) {
-        console.error(`Failed to process price check for ${routeLabel}:`, err.message);
+        console.error(`Fejl ved kørsel af pristjek for ${routeLabel}:`, err.message);
         results.push({
           routeId: route.id,
           routeLabel,
           status: 'error',
-          error: err.message || 'API error'
+          error: err.message || 'Scraper API error'
         });
       }
     }
