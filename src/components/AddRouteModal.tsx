@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, PlaneTakeoff, PlaneLanding, Calendar, DollarSign, Percent, Loader2, Sparkles } from 'lucide-react';
 
 interface AddRouteModalProps {
@@ -9,9 +9,48 @@ interface AddRouteModalProps {
   onSuccess: (newRoute: any) => void;
 }
 
+interface Airport {
+  code: string;
+  name: string;
+  city: string;
+  country: string;
+}
+
+const POPULAR_AIRPORTS: Airport[] = [
+  { code: 'CPH', name: 'Københavns Lufthavn', city: 'København', country: 'Danmark' },
+  { code: 'BLL', name: 'Billund Lufthavn', city: 'Billund', country: 'Danmark' },
+  { code: 'AAR', name: 'Aarhus Lufthavn', city: 'Aarhus', country: 'Danmark' },
+  { code: 'OPO', name: 'Francisco Sá Carneiro Lufthavn', city: 'Porto', country: 'Portugal' },
+  { code: 'EDI', name: 'Edinburgh Airport', city: 'Edinburgh', country: 'Skotland' },
+  { code: 'JFK', name: 'John F. Kennedy Intl Airport', city: 'New York', country: 'USA' },
+  { code: 'LHR', name: 'Heathrow Airport', city: 'London', country: 'Storbritannien' },
+  { code: 'HND', name: 'Haneda Airport', city: 'Tokyo', country: 'Japan' },
+  { code: 'FCO', name: 'Fiumicino Airport', city: 'Rom', country: 'Italien' },
+  { code: 'BCN', name: 'El Prat Airport', city: 'Barcelona', country: 'Spanien' },
+  { code: 'CDG', name: 'Charles de Gaulle Airport', city: 'Paris', country: 'Frankrig' },
+  { code: 'AMS', name: 'Schiphol Airport', city: 'Amsterdam', country: 'Holland' },
+  { code: 'BER', name: 'Brandenburg Airport', city: 'Berlin', country: 'Tyskland' },
+  { code: 'MUC', name: 'Munich Airport', city: 'München', country: 'Tyskland' },
+  { code: 'DXB', name: 'Dubai International Airport', city: 'Dubai', country: 'Forenede Arabiske Emirater' },
+  { code: 'SIN', name: 'Changi Airport', city: 'Singapore', country: 'Singapore' },
+  { code: 'LAX', name: 'Los Angeles International Airport', city: 'Los Angeles', country: 'USA' },
+  { code: 'AGP', name: 'Málaga Airport', city: 'Málaga', country: 'Spanien' },
+  { code: 'PMI', name: 'Palma de Mallorca Airport', city: 'Palma de Mallorca', country: 'Spanien' },
+  { code: 'ATH', name: 'Eleftherios Venizelos Airport', city: 'Athen', country: 'Grækenland' },
+  { code: 'LIS', name: 'Humberto Delgado Airport', city: 'Lissabon', country: 'Portugal' },
+  { code: 'ARN', name: 'Arlanda Airport', city: 'Stockholm', country: 'Sverige' },
+  { code: 'OSL', name: 'Gardermoen Airport', city: 'Oslo', country: 'Norge' }
+];
+
 export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteModalProps) {
+  const [originSearch, setOriginSearch] = useState('');
   const [originIata, setOriginIata] = useState('');
-  const [destinationIata, setDestinationIata] = useState('');
+  const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
+
+  const [destSearch, setDestSearch] = useState('');
+  const [destIata, setDestIata] = useState('');
+  const [showDestSuggestions, setShowDestSuggestions] = useState(false);
+
   const [departureDate, setDepartureDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
   const [targetType, setTargetType] = useState<'absolute' | 'percentage'>('absolute');
@@ -22,15 +61,90 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const originRef = useRef<HTMLDivElement>(null);
+  const destRef = useRef<HTMLDivElement>(null);
+
+  // Luk forslagslisterne hvis der klikkes udenfor modal inputområdet
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (originRef.current && !originRef.current.contains(event.target as Node)) {
+        setShowOriginSuggestions(false);
+      }
+      if (destRef.current && !destRef.current.contains(event.target as Node)) {
+        setShowDestSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (!isOpen) return null;
+
+  const getFilteredAirports = (searchVal: string) => {
+    if (!searchVal) return [];
+    const query = searchVal.toLowerCase().trim();
+    return POPULAR_AIRPORTS.filter(
+      a => 
+        a.code.toLowerCase().includes(query) ||
+        a.city.toLowerCase().includes(query) ||
+        a.name.toLowerCase().includes(query) ||
+        a.country.toLowerCase().includes(query)
+    ).slice(0, 6); // Begræns til top 6 forslag
+  };
+
+  const handleOriginChange = (val: string) => {
+    setOriginSearch(val);
+    if (val.length === 3) {
+      setOriginIata(val.toUpperCase());
+    } else {
+      setOriginIata('');
+    }
+    setShowOriginSuggestions(true);
+  };
+
+  const handleDestChange = (val: string) => {
+    setDestSearch(val);
+    if (val.length === 3) {
+      setDestIata(val.toUpperCase());
+    } else {
+      setDestIata('');
+    }
+    setShowDestSuggestions(true);
+  };
+
+  const selectOriginSuggestion = (airport: Airport) => {
+    setOriginSearch(`${airport.city} (${airport.code})`);
+    setOriginIata(airport.code);
+    setShowOriginSuggestions(false);
+  };
+
+  const selectDestSuggestion = (airport: Airport) => {
+    setDestSearch(`${airport.city} (${airport.code})`);
+    setDestIata(airport.code);
+    setShowDestSuggestions(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Hvis brugeren har tastet en kode uden at vælge fra listen, så tag de sidste 3 bogstaver i parentes eller rå tekst
+    let finalOrigin = originIata;
+    if (!finalOrigin && originSearch.length === 3) {
+      finalOrigin = originSearch.toUpperCase();
+    }
     
-    // Validations
-    if (originIata.length !== 3 || destinationIata.length !== 3) {
-      setError('Lufthavnskoder skal være præcis 3 tegn (f.eks. CPH)');
+    let finalDest = destIata;
+    if (!finalDest && destSearch.length === 3) {
+      finalDest = destSearch.toUpperCase();
+    }
+
+    if (!finalOrigin || finalOrigin.length !== 3) {
+      setError('Vælg venligst en gyldig afrejseby eller indtast en 3-bogstavs lufthavnskode (f.eks. CPH)');
+      return;
+    }
+    if (!finalDest || finalDest.length !== 3) {
+      setError('Vælg venligst en gyldig destination eller indtast en 3-bogstavs lufthavnskode (f.eks. OPO)');
       return;
     }
     if (!departureDate || !returnDate) {
@@ -51,8 +165,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          origin_iata: originIata.toUpperCase().trim(),
-          destination_iata: destinationIata.toUpperCase().trim(),
+          origin_iata: finalOrigin,
+          destination_iata: finalDest,
           departure_date: departureDate,
           return_date: returnDate,
           target_price_threshold: targetType === 'absolute' ? parseFloat(targetPriceThreshold) || null : null,
@@ -69,8 +183,10 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
 
       onSuccess(data);
       // Reset form
+      setOriginSearch('');
       setOriginIata('');
-      setDestinationIata('');
+      setDestSearch('');
+      setDestIata('');
       setDepartureDate('');
       setReturnDate('');
       setTargetPriceThreshold('');
@@ -83,10 +199,13 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
     }
   };
 
+  const originSuggestions = getFilteredAirports(originSearch);
+  const destSuggestions = getFilteredAirports(destSearch);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div 
-        className="w-full max-w-lg glass-panel overflow-hidden rounded-2xl border border-white/10 bg-gray-950/80 shadow-2xl transition-all duration-300 transform scale-100"
+        className="w-full max-w-lg glass-panel overflow-visible rounded-2xl border border-white/10 bg-gray-950/80 shadow-2xl transition-all duration-300 transform scale-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -113,36 +232,78 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
 
           {/* Origins / Destinations */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="relative space-y-2" ref={originRef}>
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
                 <PlaneTakeoff className="w-3.5 h-3.5 text-indigo-400" />
-                Afrejse (IATA)
+                Afrejse (By eller IATA)
               </label>
               <input
                 type="text"
-                placeholder="CPH"
-                maxLength={3}
-                value={originIata}
-                onChange={(e) => setOriginIata(e.target.value.toUpperCase())}
+                placeholder="Skriv afrejseby..."
+                value={originSearch}
+                onChange={(e) => handleOriginChange(e.target.value)}
+                onFocus={() => setShowOriginSuggestions(true)}
                 required
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-lg font-bold tracking-widest text-center text-white"
+                autoComplete="off"
+                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
               />
+              {showOriginSuggestions && originSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 mt-1 z-[100] max-h-48 overflow-y-auto rounded-xl bg-gray-950/95 border border-white/10 shadow-2xl backdrop-blur-md">
+                  {originSuggestions.map((a) => (
+                    <button
+                      key={a.code}
+                      type="button"
+                      onClick={() => selectOriginSuggestion(a)}
+                      className="w-full px-4 py-2 text-left text-xs hover:bg-indigo-600/30 text-gray-300 hover:text-white border-b border-white/5 last:border-b-0 flex justify-between items-center transition-colors"
+                    >
+                      <div>
+                        <div className="font-bold text-white">{a.city}</div>
+                        <div className="text-[10px] text-gray-400">{a.name}</div>
+                      </div>
+                      <div className="font-black text-indigo-400 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/25">
+                        {a.code}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             
-            <div className="space-y-2">
+            <div className="relative space-y-2" ref={destRef}>
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
                 <PlaneLanding className="w-3.5 h-3.5 text-indigo-400" />
-                Destination (IATA)
+                Destination (By eller IATA)
               </label>
               <input
                 type="text"
-                placeholder="OPO"
-                maxLength={3}
-                value={destinationIata}
-                onChange={(e) => setDestinationIata(e.target.value.toUpperCase())}
+                placeholder="Skriv ankomstby..."
+                value={destSearch}
+                onChange={(e) => handleDestChange(e.target.value)}
+                onFocus={() => setShowDestSuggestions(true)}
                 required
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-lg font-bold tracking-widest text-center text-white"
+                autoComplete="off"
+                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
               />
+              {showDestSuggestions && destSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 mt-1 z-[100] max-h-48 overflow-y-auto rounded-xl bg-gray-950/95 border border-white/10 shadow-2xl backdrop-blur-md">
+                  {destSuggestions.map((a) => (
+                    <button
+                      key={a.code}
+                      type="button"
+                      onClick={() => selectDestSuggestion(a)}
+                      className="w-full px-4 py-2 text-left text-xs hover:bg-indigo-600/30 text-gray-300 hover:text-white border-b border-white/5 last:border-b-0 flex justify-between items-center transition-colors"
+                    >
+                      <div>
+                        <div className="font-bold text-white">{a.city}</div>
+                        <div className="text-[10px] text-gray-400">{a.name}</div>
+                      </div>
+                      <div className="font-black text-indigo-400 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/25">
+                        {a.code}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
