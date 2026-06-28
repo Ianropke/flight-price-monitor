@@ -17,92 +17,57 @@ export interface IFlightService {
   fetchLowestPrice(criteria: FlightSearchCriteria): Promise<FlightPriceResult>;
 }
 
-// Module-level token cache for serverless lifecycles
-let cachedToken: string | null = null;
-let tokenExpiryTime: number = 0; // Milliseconds timestamp
-
-class AmadeusFlightService implements IFlightService {
+class KiwiFlightService implements IFlightService {
   private getBaseUrl(): string {
-    const isProd = process.env.AMADEUS_ENVIRONMENT === 'production';
-    return isProd ? 'https://api.amadeus.com' : 'https://test.api.amadeus.com';
+    return 'https://api.tequila.kiwi.com/v2/search';
   }
 
-  private async getAccessToken(): Promise<string> {
-    const now = Date.now();
-    if (cachedToken && now < tokenExpiryTime) {
-      return cachedToken;
-    }
-
-    const clientId = process.env.AMADEUS_CLIENT_ID;
-    const clientSecret = process.env.AMADEUS_CLIENT_SECRET;
-    const baseUrl = this.getBaseUrl();
-
-    if (!clientId || !clientSecret) {
-      throw new Error('Amadeus API credentials (AMADEUS_CLIENT_ID / AMADEUS_CLIENT_SECRET) are missing');
-    }
-
-    try {
-      const response = await fetch(`${baseUrl}/v1/security/oauth2/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: clientId,
-          client_secret: clientSecret,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Token request failed [${response.status}]: ${errorText}`);
-      }
-
-      const data = await response.json();
-      cachedToken = data.access_token;
-      // Set expiration 60 seconds early to avoid race conditions
-      tokenExpiryTime = Date.now() + (data.expires_in - 60) * 1000;
-
-      return cachedToken!;
-    } catch (error) {
-      console.error('Error fetching Amadeus access token:', error);
-      throw error;
-    }
+  private formatDate(dateStr: string): string {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
   }
 
   async fetchLowestPrice(criteria: FlightSearchCriteria): Promise<FlightPriceResult> {
-    const token = await this.getAccessToken();
+    const apiKey = process.env.KIWI_API_KEY;
     const baseUrl = this.getBaseUrl();
     const currency = criteria.currency || 'DKK';
 
+    if (!apiKey) {
+      throw new Error('Kiwi Tequila API key (KIWI_API_KEY) is missing');
+    }
+
+    const formattedDeparture = this.formatDate(criteria.departureDate);
+
     const params = new URLSearchParams({
-      originLocationCode: criteria.origin.toUpperCase(),
-      destinationLocationCode: criteria.destination.toUpperCase(),
-      departureDate: criteria.departureDate,
-      adults: '1',
-      currencyCode: currency,
-      max: '5', // Fetch top 5 cheapest to find the lowest valid offer
+      fly_from: criteria.origin.toUpperCase(),
+      fly_to: criteria.destination.toUpperCase(),
+      date_from: formattedDeparture,
+      date_to: formattedDeparture,
+      curr: currency,
+      limit: '5',
+      vehicle_type: 'aircraft',
     });
 
     if (criteria.returnDate) {
-      params.append('returnDate', criteria.returnDate);
+      const formattedReturn = this.formatDate(criteria.returnDate);
+      params.append('return_from', formattedReturn);
+      params.append('return_to', formattedReturn);
     }
 
-    const apiUrl = `${baseUrl}/v2/shopping/flight-offers?${params.toString()}`;
+    const apiUrl = `${baseUrl}?${params.toString()}`;
 
     try {
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'apikey': apiKey,
           'Accept': 'application/json',
         },
       });
 
       if (!response.ok) {
         const errorBody = await response.text();
-        throw new Error(`Flight offers search failed [${response.status}]: ${errorBody}`);
+        throw new Error(`Kiwi Flight search failed [${response.status}]: ${errorBody}`);
       }
 
       const payload = await response.json();
@@ -111,41 +76,31 @@ class AmadeusFlightService implements IFlightService {
         throw new Error(`No flights found for route ${criteria.origin} -> ${criteria.destination} on dates`);
       }
 
-      // Sort data to guarantee lowest price is found
-      const offers = payload.data;
-      let lowestOffer = offers[0];
-
-      for (let i = 1; i < offers.length; i++) {
-        const currentPrice = parseFloat(offers[i].price.total);
-        const lowestPrice = parseFloat(lowestOffer.price.total);
-        if (currentPrice < lowestPrice) {
-          lowestOffer = offers[i];
-        }
-      }
-
-      const finalPrice = parseFloat(lowestOffer.price.total);
+      // Kiwi results are already sorted by price ascending, so data[0] is the cheapest
+      const cheapestOffer = payload.data[0];
+      const price = parseFloat(cheapestOffer.price);
       
-      // Extract carrier code of the first segment of first itinerary if available
+      // Get carrier code of the first route segment
       let carrierCode: string | undefined;
       try {
-        carrierCode = lowestOffer.itineraries?.[0]?.segments?.[0]?.carrierCode;
+        carrierCode = cheapestOffer.route?.[0]?.airline;
       } catch (e) {
         // Safe fallback
       }
 
       return {
-        lowestPrice: finalPrice,
-        currency: lowestOffer.price.currency || currency,
+        lowestPrice: price,
+        currency,
         carrierCode,
-        rawPayload: payload, // Store response for transparency & debugging
+        rawPayload: payload,
       };
     } catch (error) {
-      console.error(`Error searching flights for ${criteria.origin}-${criteria.destination}:`, error);
+      console.error(`Error searching flights on Kiwi Tequila for ${criteria.origin}-${criteria.destination}:`, error);
       throw error;
     }
   }
 }
 
-// Export the active service implementation
-export const flightService: IFlightService = new AmadeusFlightService();
+// Export the active service implementation (Kiwi Tequila)
+export const flightService: IFlightService = new KiwiFlightService();
 export default flightService;
