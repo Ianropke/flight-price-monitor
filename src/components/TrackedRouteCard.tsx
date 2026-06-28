@@ -142,6 +142,44 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
     return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const getFlexibleDateLabel = (startStr: string, endStr: string, duration: number | null) => {
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    
+    const isFirstDay = start.getDate() === 1;
+    const lastDayOfMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+    const isLastDay = end.getDate() === lastDayOfMonth;
+    const isSameMonthAndYear = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+
+    const monthNames = [
+      'Januar', 'Februar', 'Marts', 'April', 'Maj', 'Juni',
+      'Juli', 'August', 'September', 'Oktober', 'November', 'December'
+    ];
+
+    if (duration && isSameMonthAndYear && isFirstDay && isLastDay) {
+      return `${monthNames[start.getMonth()]} ${start.getFullYear()} (${duration} dg.)`;
+    }
+
+    const startDay = start.getDay(); 
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (duration && diffDays === 6 && startDay === 1) { 
+      const tempDate = new Date(start.valueOf());
+      const dayNum = (start.getDay() + 6) % 7;
+      tempDate.setDate(tempDate.getDate() - dayNum + 3);
+      const firstThursday = tempDate.valueOf();
+      tempDate.setMonth(0, 1);
+      if (tempDate.getDay() !== 4) {
+        tempDate.setMonth(0, 1 + ((4 - tempDate.getDay()) + 7) % 7);
+      }
+      const weekNum = 1 + Math.ceil((firstThursday - tempDate.valueOf()) / 604800000);
+      return `Uge ${weekNum}, ${start.getFullYear()} (${duration} dg.)`;
+    }
+
+    return `${formattedDate(startStr)} - ${formattedDate(endStr)} (${duration} dg.)`;
+  };
+
   return (
     <div className={`glass-panel rounded-2xl border transition-card flex flex-col justify-between overflow-hidden ${
       isInactive
@@ -170,7 +208,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh }: Tracked
               <Calendar className="w-3.5 h-3.5" />
               {route.trip_duration ? (
                 <span className="text-[11px] font-semibold text-indigo-300">
-                  {formattedDate(route.departure_date)} - {formattedDate(route.return_date)} ({route.trip_duration} dg.)
+                  {getFlexibleDateLabel(route.departure_date, route.return_date, route.trip_duration)}
                 </span>
               ) : (
                 <>

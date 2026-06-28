@@ -54,6 +54,95 @@ const POPULAR_AIRPORTS: Airport[] = [
   { code: 'KEF', name: 'Keflavík International Airport', city: 'Reykjavík', country: 'Island' }
 ];
 
+interface TimeOption {
+  label: string;
+  start: string;
+  end: string;
+}
+
+// Generate Month Options starting from June 2026
+const generateMonthOptions = (): TimeOption[] => {
+  const options: TimeOption[] = [];
+  const start = new Date(2026, 5, 1); // June 2026
+  
+  const monthNames = [
+    'Januar', 'Februar', 'Marts', 'April', 'Maj', 'Juni',
+    'Juli', 'August', 'September', 'Oktober', 'November', 'December'
+  ];
+
+  for (let i = 0; i < 18; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+    const year = d.getFullYear();
+    const monthIndex = d.getMonth();
+    const monthName = monthNames[monthIndex];
+    
+    const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+    
+    const startStr = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
+    const endStr = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    
+    options.push({
+      label: `${monthName} ${year}`,
+      start: startStr,
+      end: endStr
+    });
+  }
+  return options;
+};
+
+// Generate Week Options starting from June 2026
+const generateWeekOptions = (): TimeOption[] => {
+  const options: TimeOption[] = [];
+  
+  // June 28, 2026 is week 26. Start Monday of this week.
+  const today = new Date(2026, 5, 28);
+  const day = today.getDay();
+  const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+  const currentMonday = new Date(today.setDate(diff));
+
+  const monthNamesShort = [
+    'jan', 'feb', 'mar', 'apr', 'maj', 'jun',
+    'jul', 'aug', 'sep', 'okt', 'nov', 'dec'
+  ];
+
+  const getWeekNumber = (d: Date): number => {
+    const tempDate = new Date(d.valueOf());
+    const dayNum = (d.getDay() + 6) % 7;
+    tempDate.setDate(tempDate.getDate() - dayNum + 3);
+    const firstThursday = tempDate.valueOf();
+    tempDate.setMonth(0, 1);
+    if (tempDate.getDay() !== 4) {
+      tempDate.setMonth(0, 1 + ((4 - tempDate.getDay()) + 7) % 7);
+    }
+    return 1 + Math.ceil((firstThursday - tempDate.valueOf()) / 604800000);
+  };
+
+  for (let i = 0; i < 35; i++) {
+    const monday = new Date(currentMonday);
+    monday.setDate(currentMonday.getDate() + i * 7);
+    
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    const weekNum = getWeekNumber(monday);
+    const year = monday.getFullYear();
+    
+    const startStr = monday.toISOString().split('T')[0];
+    const endStr = sunday.toISOString().split('T')[0];
+    
+    const monLabel = `${monday.getDate()}. ${monthNamesShort[monday.getMonth()]}`;
+    const sunLabel = `${sunday.getDate()}. ${monthNamesShort[sunday.getMonth()]}`;
+    
+    options.push({
+      label: `Uge ${weekNum} (${monLabel} - ${sunLabel}) ${year}`,
+      start: startStr,
+      end: endStr
+    });
+  }
+  
+  return options;
+};
+
 export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteModalProps) {
   const [originSearch, setOriginSearch] = useState('');
   const [originIata, setOriginIata] = useState('');
@@ -63,10 +152,23 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
   const [destIata, setDestIata] = useState('');
   const [showDestSuggestions, setShowDestSuggestions] = useState(false);
 
-  const [departureDate, setDepartureDate] = useState('');
-  const [returnDate, setReturnDate] = useState('');
+  // Date selection states
   const [isFlexible, setIsFlexible] = useState(false);
-  const [tripDuration, setTripDuration] = useState('7');
+  const [flexType, setFlexType] = useState<'month' | 'week'>('month');
+  
+  const monthOptions = generateMonthOptions();
+  const weekOptions = generateWeekOptions();
+  
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState('5'); // Default index 5 = November 2026
+  const [selectedWeekIndex, setSelectedWeekIndex] = useState('0');
+  
+  const [specificDepartureDate, setSpecificDepartureDate] = useState('');
+  const [specificReturnDate, setSpecificReturnDate] = useState('');
+  
+  // Trip Duration presets
+  const [durationPreset, setDurationPreset] = useState<'3' | '4' | '7' | '10' | '14' | 'custom'>('7');
+  const [customTripDuration, setCustomTripDuration] = useState('7');
+
   const [targetType, setTargetType] = useState<'absolute' | 'percentage'>('absolute');
   const [targetPriceThreshold, setTargetPriceThreshold] = useState('');
   const [dropPercentageThreshold, setDropPercentageThreshold] = useState('');
@@ -78,7 +180,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
   const originRef = useRef<HTMLDivElement>(null);
   const destRef = useRef<HTMLDivElement>(null);
 
-  // Luk forslagslisterne hvis der klikkes udenfor modal inputområdet
+  // Close lists on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (originRef.current && !originRef.current.contains(event.target as Node)) {
@@ -103,7 +205,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
         a.city.toLowerCase().includes(query) ||
         a.name.toLowerCase().includes(query) ||
         a.country.toLowerCase().includes(query)
-    ).slice(0, 6); // Begræns til top 6 forslag
+    ).slice(0, 6);
   };
 
   const handleOriginChange = (val: string) => {
@@ -142,7 +244,6 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
     e.preventDefault();
     setError('');
 
-    // Hvis brugeren har tastet en kode uden at vælge fra listen, så tag de sidste 3 bogstaver i parentes eller rå tekst
     let finalOrigin = originIata;
     if (!finalOrigin && originSearch.length === 3) {
       finalOrigin = originSearch.toUpperCase();
@@ -154,20 +255,45 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
     }
 
     if (!finalOrigin || finalOrigin.length !== 3) {
-      setError('Vælg venligst en gyldig afrejseby eller indtast en 3-bogstavs lufthavnskode (f.eks. CPH)');
+      setError('Vælg en afrejseby fra listen eller indtast en 3-bogstavs IATA-kode (f.eks. CPH)');
       return;
     }
     if (!finalDest || finalDest.length !== 3) {
-      setError('Vælg venligst en gyldig destination eller indtast en 3-bogstavs lufthavnskode (f.eks. OPO)');
+      setError('Vælg en destination fra listen eller indtast en 3-bogstavs IATA-kode (f.eks. OPO)');
       return;
     }
-    if (!departureDate || !returnDate) {
-      setError('Vælg venligst både afrejse- og hjemrejsedato');
-      return;
-    }
-    if (new Date(departureDate) > new Date(returnDate)) {
-      setError('Afrejsedato skal være før eller lig med hjemrejsedato');
-      return;
+
+    // Determine travel dates based on mode
+    let departure_date = '';
+    let return_date = '';
+    let trip_duration: number | null = null;
+
+    if (isFlexible) {
+      if (flexType === 'month') {
+        const idx = parseInt(selectedMonthIndex);
+        departure_date = monthOptions[idx].start;
+        return_date = monthOptions[idx].end;
+      } else {
+        const idx = parseInt(selectedWeekIndex);
+        departure_date = weekOptions[idx].start;
+        return_date = weekOptions[idx].end;
+      }
+      
+      trip_duration = durationPreset === 'custom' 
+        ? parseInt(customTripDuration) 
+        : parseInt(durationPreset);
+    } else {
+      departure_date = specificDepartureDate;
+      return_date = specificReturnDate;
+      
+      if (!departure_date || !return_date) {
+        setError('Udfyld venligst afrejse- og hjemrejsedato');
+        return;
+      }
+      if (new Date(departure_date) > new Date(return_date)) {
+        setError('Afrejsedato skal være før eller lig med hjemrejsedato');
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -181,11 +307,11 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
         body: JSON.stringify({
           origin_iata: finalOrigin,
           destination_iata: finalDest,
-          departure_date: departureDate,
-          return_date: returnDate,
+          departure_date,
+          return_date,
           target_price_threshold: targetType === 'absolute' ? parseFloat(targetPriceThreshold) || null : null,
           drop_percentage_threshold: targetType === 'percentage' ? parseFloat(dropPercentageThreshold) || null : null,
-          trip_duration: isFlexible ? parseInt(tripDuration) || null : null,
+          trip_duration,
           currency: currency.toUpperCase()
         }),
       });
@@ -202,10 +328,14 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
       setOriginIata('');
       setDestSearch('');
       setDestIata('');
-      setDepartureDate('');
-      setReturnDate('');
+      setSpecificDepartureDate('');
+      setSpecificReturnDate('');
       setIsFlexible(false);
-      setTripDuration('7');
+      setFlexType('month');
+      setSelectedMonthIndex('5');
+      setSelectedWeekIndex('0');
+      setDurationPreset('7');
+      setCustomTripDuration('7');
       setTargetPriceThreshold('');
       setDropPercentageThreshold('');
       onClose();
@@ -324,7 +454,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
             </div>
           </div>
 
-          {/* Dato-fleksibilitet */}
+          {/* Dato-fleksibilitet Toggle */}
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Dato-fleksibilitet</label>
             <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-gray-900/80 border border-white/5">
@@ -348,60 +478,152 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess }: AddRouteMo
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                Fleksibelt tidsrum
+                Måned eller Uge
               </button>
             </div>
           </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                {isFlexible ? 'Tidligste afrejse' : 'Afrejsedato'}
-              </label>
-              <input
-                type="date"
-                min={new Date().toISOString().split('T')[0]}
-                value={departureDate}
-                onChange={(e) => setDepartureDate(e.target.value)}
-                required
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                {isFlexible ? 'Seneste hjemrejse' : 'Hjemrejsedato'}
-              </label>
-              <input
-                type="date"
-                min={departureDate || new Date().toISOString().split('T')[0]}
-                value={returnDate}
-                onChange={(e) => setReturnDate(e.target.value)}
-                required
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
-              />
-            </div>
-          </div>
+          {/* Flexible Travel Window Selector (Months or Weeks) */}
+          {isFlexible ? (
+            <div className="space-y-4 p-4 rounded-xl bg-white/5 border border-white/5 animate-fade-in">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Search Unit selector */}
+                <div className="space-y-1.5 col-span-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Overvåg tidsrum</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFlexType('month')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                        flexType === 'month' 
+                          ? 'bg-white/10 border-indigo-500/50 text-white' 
+                          : 'border-white/5 text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      En hel måned
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFlexType('week')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                        flexType === 'week' 
+                          ? 'bg-white/10 border-indigo-500/50 text-white' 
+                          : 'border-white/5 text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      En bestemt uge
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Specific Month / Week selection dropdowns */}
+                {flexType === 'month' ? (
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Vælg måned</label>
+                    <select
+                      value={selectedMonthIndex}
+                      onChange={(e) => setSelectedMonthIndex(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl glass-input text-sm text-white font-medium focus:border-indigo-500"
+                    >
+                      {monthOptions.map((opt, idx) => (
+                        <option key={idx} value={idx}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Vælg uge</label>
+                    <select
+                      value={selectedWeekIndex}
+                      onChange={(e) => setSelectedWeekIndex(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl glass-input text-sm text-white font-medium focus:border-indigo-500"
+                    >
+                      {weekOptions.map((opt, idx) => (
+                        <option key={idx} value={idx}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-          {/* Rejsevarighed (vises kun ved fleksibelt tidsrum) */}
-          {isFlexible && (
-            <div className="space-y-2 animate-fade-in">
-              <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                Ønsket rejsevarighed (antal dage)
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={90}
-                value={tripDuration}
-                onChange={(e) => setTripDuration(e.target.value)}
-                required={isFlexible}
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
-                placeholder="f.eks. 7"
-              />
+                {/* Duration Presets Selector */}
+                <div className="space-y-1.5 col-span-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Rejsens varighed</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { val: '3', label: 'Weekend' },
+                      { val: '4', label: 'Forlænget' },
+                      { val: '7', label: '1 uge' },
+                      { val: '10', label: '10 dg.' },
+                      { val: '14', label: '2 uger' },
+                      { val: 'custom', label: 'Andet' }
+                    ].map((p) => (
+                      <button
+                        key={p.val}
+                        type="button"
+                        onClick={() => setDurationPreset(p.val as any)}
+                        className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all border ${
+                          durationPreset === p.val 
+                            ? 'bg-indigo-600/30 border-indigo-500 text-white' 
+                            : 'border-white/5 text-gray-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom days input (if selected) */}
+                {durationPreset === 'custom' && (
+                  <div className="space-y-1.5 col-span-2 animate-fade-in">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Indtast rejsevarighed (antal dage)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={customTripDuration}
+                      onChange={(e) => setCustomTripDuration(e.target.value)}
+                      required={durationPreset === 'custom'}
+                      className="w-full px-4 py-2 rounded-xl glass-input text-sm text-white focus:border-indigo-500"
+                      placeholder="f.eks. 5"
+                    />
+                  </div>
+                )}
+
+              </div>
+            </div>
+          ) : (
+            /* Specific Dates Pickers */
+            <div className="grid grid-cols-2 gap-4 animate-fade-in">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                  Afrejsedato
+                </label>
+                <input
+                  type="date"
+                  min={new Date().toISOString().split('T')[0]}
+                  value={specificDepartureDate}
+                  onChange={(e) => setSpecificDepartureDate(e.target.value)}
+                  required={!isFlexible}
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                  Hjemrejsedato
+                </label>
+                <input
+                  type="date"
+                  min={specificDepartureDate || new Date().toISOString().split('T')[0]}
+                  value={specificReturnDate}
+                  onChange={(e) => setSpecificReturnDate(e.target.value)}
+                  required={!isFlexible}
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white"
+                />
+              </div>
             </div>
           )}
 
