@@ -101,8 +101,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
   const [routeType, setRouteType] = useState<'specific' | 'explore'>('explore');
   const [exploreRegions, setExploreRegions] = useState<string[]>(['Europe']);
   
-  const [originSearch, setOriginSearch] = useState('');
-  const [originIata, setOriginIata] = useState('');
+  const [originSearch, setOriginSearch] = useState('København (CPH)');
+  const [originIata, setOriginIata] = useState('CPH');
   const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
 
   const [destSearch, setDestSearch] = useState('');
@@ -204,8 +204,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
       // Reset form fields
       setRouteType('specific');
       setExploreRegions(['Europe']);
-      setOriginSearch('');
-      setOriginIata('');
+      setOriginSearch('København (CPH)');
+      setOriginIata('CPH');
       setDestSearch('');
       setDestIata('');
       setSpecificDepartureDate('');
