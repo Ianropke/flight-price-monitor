@@ -194,7 +194,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
         ? 'border-white/5 bg-gray-950/20 opacity-60 hover:opacity-80'
         : targetMet 
           ? 'border-emerald-500/30 bg-emerald-950/15 shadow-emerald-500/5' 
-          : 'border-white/5 hover:border-indigo-500/25 bg-gray-950/40'
+          : 'border-white/5 hover:border-amber-500/25 bg-gray-950/40'
     }`}>
       {/* Card Header */}
       <div className="p-6 border-b border-white/5 space-y-4">
@@ -202,11 +202,11 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
           <div>
             <div className="flex items-center flex-wrap gap-2 text-lg font-bold tracking-wide font-outfit text-white">
               <span>{getCityName(route.origin_iata)}</span>
-              <span className="text-[10px] font-semibold text-indigo-300 uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 shrink-0">{route.origin_iata}</span>
-              <ArrowRight className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span className="text-[10px] font-semibold text-amber-300 uppercase px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 shrink-0">{route.origin_iata}</span>
+              <ArrowRight className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               {route.route_type === 'explore' ? (
                 <>
-                  <span className="text-emerald-400">Udforsk</span>
+                  <span className="text-amber-400">Udforsk</span>
                   <span className="text-[10px] font-semibold text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 shrink-0">
                     {route.explore_regions?.join(', ')}
                   </span>
@@ -214,7 +214,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
               ) : (
                 <>
                   <span>{getCityName(route.destination_iata || '')}</span>
-                  <span className="text-[10px] font-semibold text-indigo-300 uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 shrink-0">
+                  <span className="text-[10px] font-semibold text-amber-300 uppercase px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 shrink-0">
                     {route.destination_iata}
                   </span>
                 </>
@@ -227,10 +227,10 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
               )}
             </div>
             
-            <div className="flex items-center space-x-1.5 mt-1 text-xs text-gray-400 font-medium">
+            <div className="flex items-center space-x-1.5 mt-1 text-xs text-amber-100/60 font-medium">
               <Calendar className="w-3.5 h-3.5" />
               {route.trip_duration ? (
-                <span className="text-[11px] font-semibold text-indigo-300">
+                <span className="text-[11px] font-semibold text-amber-300">
                   {getFlexibleDateLabel(route.departure_date, route.return_date, route.trip_duration)}
                 </span>
               ) : (
@@ -247,22 +247,22 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
             <button
               onClick={handleRefresh}
               disabled={isRefreshing || isInactive}
-              title={isInactive ? "Inaktive ruter kan ikke opdateres" : "Opdater flypriser"}
+              title={isInactive ? "Inaktive missioner kan ikke opdateres" : "Opdater flypriser"}
               className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-30"
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-400' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-amber-400' : ''}`} />
             </button>
             <button
               onClick={() => onEdit(route)}
-              title="Rediger overvågning"
-              className="p-2 rounded-lg text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+              title="Rediger mission"
+              className="p-2 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
             >
               <Pencil className="w-4 h-4" />
             </button>
             <button
               onClick={handleDelete}
               disabled={isDeleting}
-              title="Stop overvågning af rute"
+              title="Slet mission"
               className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
             >
               <Trash2 className="w-4 h-4" />
@@ -273,7 +273,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
         {/* Pricing / Alert Thresholds Indicators */}
         <div className="grid grid-cols-2 gap-4 pt-2">
           <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Aktuel {route.route_type === 'explore' ? 'fra-pris' : 'pris'}</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-amber-100/50">Bedste Fund Lige Nu</span>
             <div className="flex items-baseline space-x-1 text-white">
               {currentPrice !== null ? (
                 <>
@@ -287,9 +287,9 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
           </div>
 
           <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 flex items-center gap-1">
-              <Bell className="w-3 h-3 text-indigo-400" />
-              Grænseværdi
+            <span className="text-[10px] uppercase font-bold tracking-wider text-amber-100/50 flex items-center gap-1">
+              <Bell className="w-3 h-3 text-amber-400" />
+              Dit Mål
             </span>
             <div className="text-sm font-bold text-white flex items-center space-x-1">
               {route.target_price_threshold ? (
@@ -343,14 +343,14 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
                 <defs>
                   {/* Glowing line gradient */}
                   <linearGradient id={`line-grad-${route.id}`} x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#6366f1" />
-                    <stop offset="50%" stopColor="#a855f7" stopOpacity="0.8" />
+                    <stop offset="0%" stopColor="#f59e0b" />
+                    <stop offset="50%" stopColor="#f97316" stopOpacity="0.8" />
                     <stop offset="100%" stopColor="#10b981" />
                   </linearGradient>
                   {/* Under curve gradient area */}
                   <linearGradient id={`area-grad-${route.id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
+                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0" />
                   </linearGradient>
                 </defs>
 
@@ -409,9 +409,9 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
                       cy={hoveredPoint.y}
                       r="5"
                       fill="#ffffff"
-                      stroke={isInactive ? "#9ca3af" : "#6366f1"}
+                      stroke={isInactive ? "#9ca3af" : "#f59e0b"}
                       strokeWidth="3"
-                      className="shadow-lg shadow-indigo-600/50"
+                      className="shadow-lg shadow-amber-500/50"
                     />
                   </>
                 )}
@@ -420,7 +420,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
               {/* Tooltip Overlay inside container */}
               {hoveredPoint && (
                 <div 
-                  className="absolute pointer-events-none z-10 glass-panel px-2.5 py-1.5 rounded-lg border border-indigo-500/20 text-center shadow-lg"
+                  className="absolute pointer-events-none z-10 glass-panel px-2.5 py-1.5 rounded-lg border border-amber-500/20 text-center shadow-lg"
                   style={{
                     left: `${Math.min(Math.max(10, (hoveredPoint.x / svgWidth) * 100 - 15), 70)}%`,
                     bottom: '75px',
@@ -458,14 +458,14 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
             </div>
           </div>
         ) : history.length === 1 ? (
-          <div className="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10 space-y-3">
+          <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 space-y-3">
             <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-              <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">Aktiv overvågning startet</span>
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">Mission Startet</span>
             </div>
             <div className="space-y-1">
               <div className="text-sm font-semibold text-white">
-                Første måling registreret: <span className="text-indigo-400 font-bold">{currentPrice?.toLocaleString() || '---'} {route.currency}</span>
+                Første fundne pris: <span className="text-amber-400 font-bold">{currentPrice?.toLocaleString() || '---'} {route.currency}</span>
               </div>
               <p className="text-[10px] text-gray-400 leading-relaxed">
                 Vi har hentet startprisen fra Google Flights. Systemet overvåger prisen dagligt, og kurven tegnes automatisk så snart næste pristjek registreres.
@@ -474,10 +474,10 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-8 px-4 text-center space-y-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
-            <div className="text-xs font-semibold text-gray-400">Henter flypriser...</div>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+            <div className="text-xs font-semibold text-gray-400">Spejder efter magi...</div>
             <div className="text-[10px] text-gray-500 max-w-[200px]">
-              Vi opretter forbindelse til Google Flights for at indsamle den første pris.
+              Vi afsøger markedet lige nu.
             </div>
           </div>
         )}

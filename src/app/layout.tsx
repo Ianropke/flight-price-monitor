@@ -18,8 +18,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Flight Price Monitor — Track Routes & Price Drops",
-  description: "Monitor flight routes, track historical price trends, and get alerted immediately when prices drop below your set target thresholds.",
+  title: "EventyrAgenten — Din Rejsemission",
+  description: "Find dine drømmerejser. Overvåg ruter automatisk, og slå til når magien sker.",
 };
 
 export default function RootLayout({

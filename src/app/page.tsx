@@ -127,125 +127,56 @@ export default function Home() {
   }).length;
 
   return (
-    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
+    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12 animate-fade-in relative z-10 min-h-[90vh] flex flex-col justify-center">
       
-      {/* Top Navigation & App Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-6">
-        <div className="flex items-center space-x-3.5">
-          <div className="p-2.5 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 shadow-lg shadow-indigo-600/10">
-            <Globe className="w-6 h-6 text-indigo-400" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-white font-outfit">
-              Flypris-<span className="text-indigo-400 glow-text-indigo">Monitor</span>
-            </h1>
-            <p className="text-xs font-semibold text-gray-400 mt-0.5 tracking-wide uppercase">
-              Udforsk verden og få besked om de billigste flyrejser
-            </p>
-          </div>
+      {/* Hero Section */}
+      <header className="text-center max-w-3xl mx-auto space-y-6 py-10">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-amber-100/80 tracking-widest uppercase mb-2 backdrop-blur-md">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+          EventyrAgenten
         </div>
-
-        <div className="flex items-center gap-2">
-          {/* Quick Actions */}
-          <button
-            onClick={handleSeedDatabase}
-            disabled={isSeeding}
-            className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-all flex items-center gap-2 disabled:opacity-50"
-          >
-            {isSeeding ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Database className="w-3.5 h-3.5 text-violet-400" />
-            )}
-            <span>Indlæs testdata</span>
-          </button>
-
-          <button
-            onClick={handleAddClick}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
-          >
-            <Compass className="w-4 h-4" />
-            <span>Start Udforskning</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Overview Stat Cards Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass-panel p-6 rounded-2xl border border-white/5 flex items-center space-x-5">
-          <div className="p-4 rounded-xl bg-indigo-600/10 border border-indigo-500/10">
-            <Activity className="w-6 h-6 text-indigo-400" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Aktive overvågninger</span>
-            <div className="text-3xl font-extrabold tracking-tight text-white mt-1">
-              {isLoading ? '...' : activeRoutesCount} <span className="text-sm font-normal text-gray-500">/ {routes.length} total</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-panel p-6 rounded-2xl border border-white/5 flex items-center space-x-5">
-          <div className="p-4 rounded-xl bg-emerald-600/10 border border-emerald-500/10">
-            <BellRing className="w-6 h-6 text-emerald-400" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Alarmer udløst</span>
-            <div className="text-3xl font-extrabold tracking-tight text-white mt-1">
-              {isLoading ? '...' : alertHitsCount}
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-panel p-6 rounded-2xl border border-white/5 flex items-center space-x-5">
-          <div className="p-4 rounded-xl bg-violet-600/10 border border-violet-500/10">
-            <RefreshCw className="w-6 h-6 text-violet-400" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Vercel Cronjob</span>
+        <h1 className="text-5xl sm:text-7xl font-black tracking-tight text-white font-outfit drop-shadow-2xl">
+          Hvor drømmer du <br/> om at vågne op?
+        </h1>
+        <p className="text-lg text-amber-50/70 font-medium max-w-xl mx-auto leading-relaxed">
+          Slip for traditionel prisovervågning. Vælg en drømmedestination, og lad os finde de magiske rejser til dig, når markedet dumper priserne.
+        </p>
+        
+        {routes.length === 0 && (
+          <div className="pt-8 pb-12">
             <button
-              onClick={handleRunCronSimulation}
-              disabled={isCronRunning}
-              className="mt-1 text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 disabled:opacity-50 transition-colors"
+              onClick={handleAddClick}
+              className="px-8 py-4 rounded-full bg-gradient-to-r from-amber-500 to-orange-400 hover:from-amber-400 hover:to-orange-300 text-white font-bold text-lg shadow-[0_0_40px_rgba(251,191,36,0.3)] hover:shadow-[0_0_60px_rgba(251,191,36,0.5)] transition-all flex items-center justify-center gap-3 mx-auto transform hover:-translate-y-1"
             >
-              {isCronRunning ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>Tjekker...</span>
-                </>
-              ) : (
-                <>
-                  <span>Simuler dagligt pristjek</span>
-                  <span className="text-gray-500">•</span>
-                  <span className="text-violet-400 underline decoration-dotted font-bold">Kør nu</span>
-                </>
-              )}
+              <Compass className="w-6 h-6" />
+              Bed agenten om at lede
             </button>
           </div>
-        </div>
-      </section>
+        )}
+      </header>
 
       {/* Simulator logs panel (if cron is run manually) */}
       {cronLogs && (
-        <section className="glass-panel p-6 rounded-2xl border border-indigo-500/20 bg-indigo-950/10 space-y-3">
+        <section className="glass-panel p-6 rounded-3xl border border-white/10 bg-black/40 backdrop-blur-md space-y-3 max-w-3xl mx-auto w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Info className="w-4 h-4 text-indigo-400" />
-              <h3 className="font-bold text-white text-sm">Simuleret Cron-pristjek logfiler</h3>
+              <Info className="w-4 h-4 text-amber-400" />
+              <h3 className="font-bold text-white text-sm">Simuleret Agent-Søgning</h3>
             </div>
             <button 
               onClick={() => setCronLogs(null)}
-              className="text-[10px] text-gray-400 hover:text-white uppercase font-bold tracking-wider"
+              className="text-[10px] text-white/50 hover:text-white uppercase font-bold tracking-wider"
             >
-              Luk logfiler
+              Luk log
             </button>
           </div>
           
-          <div className="p-4 bg-black/40 rounded-xl border border-white/5 font-mono text-xs text-gray-300 max-h-48 overflow-y-auto space-y-1">
-            <div className="text-gray-400">// Tjekkede {cronLogs.processedCount} rute(r):</div>
+          <div className="p-4 bg-black/40 rounded-2xl border border-white/5 font-mono text-xs text-gray-300 max-h-48 overflow-y-auto space-y-1">
+            <div className="text-gray-500">// Tjekkede {cronLogs.processedCount} mission(er):</div>
             {cronLogs.results?.map((res: any, idx: number) => (
-              <div key={idx} className={res.status === 'success' ? 'text-green-400' : 'text-red-400'}>
+              <div key={idx} className={res.status === 'success' ? 'text-amber-200' : 'text-red-400'}>
                 {res.status === 'success' 
-                  ? `✓ [${res.routeLabel}] Pris opdateret til ${res.price} DKK${res.alertTriggered ? ' -> 🚨 ALARM UDLØST!' : ''}`
+                  ? `✓ [${res.routeLabel}] Fandt pris: ${res.price} DKK${res.alertTriggered ? ' -> 🌟 DRØMMEREJSE FUNDET!' : ''}`
                   : `✗ [${res.routeLabel}] Fejl: ${res.error}`
                 }
               </div>
@@ -254,78 +185,48 @@ export default function Home() {
         </section>
       )}
 
-      {/* Main Tracked Routes Cards Grid */}
-      <section className="space-y-6">
-        <h2 className="text-xl font-bold tracking-wide font-outfit text-white flex items-center gap-2">
-          <span>Dine Rejse-Agenter</span>
-          <span className="px-2 py-0.5 rounded-full bg-white/5 text-xs text-gray-400 font-bold border border-white/5">
-            {routes.length}
-          </span>
-        </h2>
+      {/* Active Missions (only show if routes exist) */}
+      {routes.length > 0 && (
+        <section className="space-y-8 pt-4 w-full">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold tracking-tight font-outfit text-white flex items-center gap-3">
+              <span>Dine Rejse-Missioner</span>
+              <span className="px-3 py-1 rounded-full bg-white/10 text-sm text-amber-200 font-bold backdrop-blur-md border border-white/5">
+                {routes.length}
+              </span>
+            </h2>
+            <button
+              onClick={handleAddClick}
+              className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/5 text-sm font-bold text-white transition-all flex items-center gap-2 backdrop-blur-md"
+            >
+              <Plus className="w-4 h-4" />
+              Ny Mission
+            </button>
+          </div>
 
-        {isLoading ? (
-          /* Loading Skeletons */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="glass-panel p-6 rounded-2xl border border-white/5 space-y-6 animate-pulse">
-                <div className="flex justify-between items-center">
-                  <div className="h-6 w-32 bg-white/10 rounded-lg" />
-                  <div className="h-6 w-16 bg-white/10 rounded-lg" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="h-14 bg-white/5 rounded-xl" />
-                  <div className="h-14 bg-white/5 rounded-xl" />
-                </div>
-                <div className="h-28 bg-white/5 rounded-xl" />
-              </div>
-            ))}
-          </div>
-        ) : routes.length > 0 ? (
-          /* Main Cards List */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {routes.map((route) => (
-              <TrackedRouteCard
-                key={route.id}
-                route={route}
-                onDelete={handleRouteDeleted}
-                onRefresh={handleRouteRefresh}
-                onEdit={handleEditClick}
-              />
-            ))}
-          </div>
-        ) : (
-          /* Empty State */
-          <div className="glass-panel py-16 px-6 text-center rounded-2xl border border-dashed border-white/10 bg-gray-950/10 flex flex-col items-center justify-center space-y-4 max-w-2xl mx-auto">
-            <div className="p-4 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-              <Globe className="w-10 h-10" />
+          {isLoading ? (
+            /* Loading Skeletons */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="h-64 rounded-3xl bg-white/5 border border-white/10 animate-pulse backdrop-blur-sm" />
+              ))}
             </div>
-            <div className="space-y-1">
-              <h3 className="text-xl font-black text-white font-outfit">Hvor vil du hen?</h3>
-              <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
-                Vælg en verdensdel og en tidsperiode. Vi overvåger dagligt markedet og sender dig markedets absolut bedste prisfald!
-              </p>
+          ) : (
+            /* Main Cards List */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {routes.map((route) => (
+                <TrackedRouteCard
+                  key={route.id}
+                  route={route}
+                  onDelete={handleRouteDeleted}
+                  onRefresh={handleRouteRefresh}
+                  onEdit={handleEditClick}
+                />
+              ))}
             </div>
-            
-            <div className="flex flex-col sm:flex-row items-center gap-3 pt-4 w-full sm:w-auto">
-              <button
-                onClick={handleSeedDatabase}
-                disabled={isSeeding}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-white/10 text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
-              >
-                Vis mig et eksempel
-              </button>
-              
-              <button
-                onClick={handleAddClick}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex justify-center items-center gap-2"
-              >
-                <Compass className="w-4 h-4" />
-                Start din første udforskning
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
       {/* Modal form dialog overlay */}
       <AddRouteModal
@@ -335,6 +236,15 @@ export default function Home() {
         routeToEdit={routeToEdit}
       />
       
+      {/* Discreet Developer/Admin Footer */}
+      <footer className="fixed bottom-6 right-6 flex items-center gap-3 opacity-20 hover:opacity-100 transition-opacity z-50">
+          <button onClick={handleSeedDatabase} disabled={isSeeding} className="p-3 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-white/20 hover:scale-110 transition-transform" title="Indlæs testdata (Admin)">
+            {isSeeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+          </button>
+          <button onClick={handleRunCronSimulation} disabled={isCronRunning} className="p-3 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-white/20 hover:scale-110 transition-transform" title="Kør Agent Søgning (Admin)">
+            {isCronRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          </button>
+      </footer>
     </main>
   );
 }

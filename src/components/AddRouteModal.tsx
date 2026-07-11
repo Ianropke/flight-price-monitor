@@ -403,7 +403,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
           <div className="flex items-center space-x-2">
-            <Sparkles className="w-5 h-5 text-indigo-400 glow-text-indigo" />
+            <Sparkles className="w-5 h-5 text-amber-400 glow-text-amber" />
             <h2 className="text-xl font-semibold tracking-wide text-white font-outfit">
               {routeToEdit ? 'Rediger overvågning' : 'Overvåg ny rute'}
             </h2>
@@ -432,7 +432,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                 onClick={() => setRouteType('specific')}
                 className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                   routeType === 'specific' 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' 
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -456,7 +456,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
           <div className="grid grid-cols-2 gap-4">
             <div className="relative space-y-2" ref={originRef}>
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                <PlaneTakeoff className="w-3.5 h-3.5 text-indigo-400" />
+                <PlaneTakeoff className="w-3.5 h-3.5 text-amber-400" />
                 Afrejse (By eller IATA)
               </label>
               <input
@@ -477,13 +477,13 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                       key={a.code}
                       type="button"
                       onClick={() => selectOriginSuggestion(a)}
-                      className="w-full px-4 py-2 text-left text-xs hover:bg-indigo-600/30 text-gray-300 hover:text-white border-b border-white/5 last:border-b-0 flex justify-between items-center transition-colors"
+                      className="w-full px-4 py-2 text-left text-xs hover:bg-amber-600/30 text-gray-300 hover:text-white border-b border-white/5 last:border-b-0 flex justify-between items-center transition-colors"
                     >
                       <div>
                         <div className="font-bold text-white">{a.city}</div>
                         <div className="text-[10px] text-gray-400">{a.name}</div>
                       </div>
-                      <div className="font-black text-indigo-400 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/25">
+                      <div className="font-black text-amber-400 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/25">
                         {a.code}
                       </div>
                     </button>
@@ -495,7 +495,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
             {routeType === 'specific' ? (
               <div className="relative space-y-2" ref={destRef}>
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                  <PlaneLanding className="w-3.5 h-3.5 text-indigo-400" />
+                  <PlaneLanding className="w-3.5 h-3.5 text-amber-400" />
                   Destination (By eller IATA)
                 </label>
                 <input
@@ -516,13 +516,13 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                         key={a.code}
                         type="button"
                         onClick={() => selectDestSuggestion(a)}
-                        className="w-full px-4 py-2 text-left text-xs hover:bg-indigo-600/30 text-gray-300 hover:text-white border-b border-white/5 last:border-b-0 flex justify-between items-center transition-colors"
+                        className="w-full px-4 py-2 text-left text-xs hover:bg-amber-600/30 text-gray-300 hover:text-white border-b border-white/5 last:border-b-0 flex justify-between items-center transition-colors"
                       >
                         <div>
                           <div className="font-bold text-white">{a.city}</div>
                           <div className="text-[10px] text-gray-400">{a.name}</div>
                         </div>
-                        <div className="font-black text-indigo-400 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/25">
+                        <div className="font-black text-amber-400 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/25">
                           {a.code}
                         </div>
                       </button>
@@ -565,7 +565,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                 onClick={() => setIsFlexible(false)}
                 className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                   !isFlexible 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' 
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -576,7 +576,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                 onClick={() => setIsFlexible(true)}
                 className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                   isFlexible 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' 
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -597,7 +597,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                       onClick={() => setFlexType('month')}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                         flexType === 'month' 
-                          ? 'bg-white/10 border-indigo-500/50 text-white' 
+                          ? 'bg-white/10 border-amber-500/50 text-white' 
                           : 'border-white/5 text-gray-400 hover:text-white hover:bg-white/5'
                       }`}
                     >
@@ -608,7 +608,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                       onClick={() => setFlexType('week')}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                         flexType === 'week' 
-                          ? 'bg-white/10 border-indigo-500/50 text-white' 
+                          ? 'bg-white/10 border-amber-500/50 text-white' 
                           : 'border-white/5 text-gray-400 hover:text-white hover:bg-white/5'
                       }`}
                     >
@@ -623,7 +623,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                     <select
                       value={selectedMonthIndex}
                       onChange={(e) => setSelectedMonthIndex(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl glass-input text-sm text-white font-medium focus:border-indigo-500"
+                      className="w-full px-3 py-2.5 rounded-xl glass-input text-sm text-white font-medium focus:border-amber-500"
                     >
                       {monthOptions.map((opt, idx) => (
                         <option key={idx} value={idx}>{opt.label}</option>
@@ -636,7 +636,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                     <select
                       value={selectedWeekIndex}
                       onChange={(e) => setSelectedWeekIndex(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl glass-input text-sm text-white font-medium focus:border-indigo-500"
+                      className="w-full px-3 py-2.5 rounded-xl glass-input text-sm text-white font-medium focus:border-amber-500"
                     >
                       {weekOptions.map((opt, idx) => (
                         <option key={idx} value={idx}>{opt.label}</option>
@@ -662,7 +662,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                         onClick={() => setDurationPreset(p.val as any)}
                         className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all border ${
                           durationPreset === p.val 
-                            ? 'bg-indigo-600/30 border-indigo-500 text-white' 
+                            ? 'bg-amber-600/30 border-amber-500 text-white' 
                             : 'border-white/5 text-gray-400 hover:text-white hover:bg-white/5'
                         }`}
                       >
@@ -682,7 +682,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                       value={customTripDuration}
                       onChange={(e) => setCustomTripDuration(e.target.value)}
                       required={durationPreset === 'custom'}
-                      className="w-full px-4 py-2 rounded-xl glass-input text-sm text-white focus:border-indigo-500"
+                      className="w-full px-4 py-2 rounded-xl glass-input text-sm text-white focus:border-amber-500"
                       placeholder="f.eks. 5"
                     />
                   </div>
@@ -693,7 +693,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
             <div className="grid grid-cols-2 gap-4 animate-fade-in">
               <div className="space-y-2">
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                  <Calendar className="w-3.5 h-3.5 text-amber-400" />
                   Afrejsedato
                 </label>
                 <input
@@ -713,7 +713,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
               
               <div className="space-y-2">
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                  <Calendar className="w-3.5 h-3.5 text-amber-400" />
                   Hjemrejsedato
                 </label>
                 <input
@@ -742,7 +742,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                 onClick={() => setTargetType('absolute')}
                 className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                   targetType === 'absolute' 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' 
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -753,7 +753,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
                 onClick={() => setTargetType('percentage')}
                 className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                   targetType === 'percentage' 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' 
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -768,7 +768,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
               {targetType === 'absolute' ? (
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-indigo-400" />
+                    <DollarSign className="w-3.5 h-3.5 text-amber-400" />
                     Målpris (grænseværdi)
                   </label>
                   <div className="relative">
@@ -789,7 +789,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
               ) : (
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                    <Percent className="w-3.5 h-3.5 text-indigo-400" />
+                    <Percent className="w-3.5 h-3.5 text-amber-400" />
                     Mål-prisfald i procent
                   </label>
                   <div className="relative">
@@ -848,7 +848,7 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 py-3 px-4 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
+              className="flex-1 py-3 px-4 rounded-xl text-sm font-semibold bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
             >
               {isLoading ? (
                 <>
