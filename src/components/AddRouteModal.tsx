@@ -98,7 +98,7 @@ const generateWeekOptions = (): TimeOption[] => {
 };
 
 export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit }: AddRouteModalProps) {
-  const [routeType, setRouteType] = useState<'specific' | 'explore'>('specific');
+  const [routeType, setRouteType] = useState<'specific' | 'explore'>('explore');
   const [exploreRegions, setExploreRegions] = useState<string[]>(['Europe']);
   
   const [originSearch, setOriginSearch] = useState('');

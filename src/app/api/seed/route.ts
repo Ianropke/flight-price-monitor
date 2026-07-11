@@ -21,22 +21,24 @@ export async function GET(request: Request) {
     const routesData = [
       {
         origin_iata: 'CPH',
-        destination_iata: 'OPO',
-        route_type: 'specific',
-        departure_date: '2026-11-12',
-        return_date: '2026-11-19',
-        target_price_threshold: 1200,
+        destination_iata: null,
+        route_type: 'explore',
+        explore_regions: ['Europe'],
+        departure_date: '2026-12-20',
+        return_date: '2026-12-27',
+        target_price_threshold: 2000,
         drop_percentage_threshold: null,
         currency: 'DKK',
         status: 'active'
       },
       {
         origin_iata: 'CPH',
-        destination_iata: 'EDI',
-        route_type: 'specific',
+        destination_iata: null,
+        route_type: 'explore',
+        explore_regions: ['Asia'],
         departure_date: '2026-11-15',
-        return_date: '2026-11-22',
-        target_price_threshold: null,
+        return_date: '2026-11-29',
+        target_price_threshold: 4000,
         drop_percentage_threshold: 15,
         currency: 'DKK',
         status: 'active'
@@ -49,18 +51,6 @@ export async function GET(request: Request) {
         return_date: '2026-11-24',
         target_price_threshold: 3000,
         drop_percentage_threshold: 10,
-        currency: 'DKK',
-        status: 'active'
-      },
-      {
-        origin_iata: 'CPH',
-        destination_iata: null,
-        route_type: 'explore',
-        explore_regions: ['Europe'],
-        departure_date: '2026-12-20',
-        return_date: '2026-12-27',
-        target_price_threshold: 2000,
-        drop_percentage_threshold: null,
         currency: 'DKK',
         status: 'active'
       }
@@ -86,35 +76,7 @@ export async function GET(request: Request) {
       return d.toISOString();
     };
 
-    // Route 1 (CPH -> OPO) prices: descending down to target threshold of 1200 (final is 1150)
-    const route1 = insertedRoutes.find(r => r.destination_iata === 'OPO');
-    if (route1) {
-      const prices = [1500, 1420, 1350, 1290, 1310, 1250, 1150];
-      prices.forEach((price, idx) => {
-        historyData.push({
-          route_id: route1.id,
-          lowest_price_found: price,
-          currency: route1.currency,
-          fetch_date: getPastDateString((prices.length - 1 - idx) * 1), // 1 point per day for last 7 days
-        });
-      });
-    }
-
-    // Route 2 (CPH -> EDI) prices: volatile then a sudden 20% drop (from ~1000 avg to 790)
-    const route2 = insertedRoutes.find(r => r.destination_iata === 'EDI');
-    if (route2) {
-      const prices = [1050, 980, 1020, 990, 1010, 970, 790];
-      prices.forEach((price, idx) => {
-        historyData.push({
-          route_id: route2.id,
-          lowest_price_found: price,
-          currency: route2.currency,
-          fetch_date: getPastDateString((prices.length - 1 - idx) * 1),
-        });
-      });
-    }
-
-    // Route 3 (CPH -> JFK) prices: fluctuating around 3200 DKK, target is 3000 (not met)
+    // Route 1 (CPH -> JFK) prices: fluctuating around 3200 DKK, target is 3000 (not met)
     const route3 = insertedRoutes.find(r => r.destination_iata === 'JFK');
     if (route3) {
       const prices = [3400, 3320, 3280, 3350, 3200, 3250, 3210];
@@ -128,20 +90,39 @@ export async function GET(request: Request) {
       });
     }
 
-    // Route 4 (CPH -> Europe Explore) prices
-    const route4 = insertedRoutes.find(r => r.route_type === 'explore');
-    if (route4) {
+    // Route 2 (CPH -> Europe Explore) prices
+    const routeEurope = insertedRoutes.find(r => r.route_type === 'explore' && r.explore_regions?.includes('Europe'));
+    if (routeEurope) {
       const prices = [1100, 1050, 950, 800, 850, 750, 680];
       prices.forEach((price, idx) => {
         historyData.push({
-          route_id: route4.id,
+          route_id: routeEurope.id,
           lowest_price_found: price,
-          currency: route4.currency,
+          currency: routeEurope.currency,
           fetch_date: getPastDateString((prices.length - 1 - idx) * 1),
           explore_deals: [
             { destination: 'LHR', airportName: 'London Heathrow', price: price, duration: 120, airline: 'British Airways' },
             { destination: 'CDG', airportName: 'Paris Charles de Gaulle', price: price + 150, duration: 130, airline: 'Air France' },
             { destination: 'FCO', airportName: 'Rome Fiumicino', price: price + 200, duration: 160, airline: 'SAS' }
+          ]
+        });
+      });
+    }
+
+    // Route 3 (CPH -> Asia Explore) prices
+    const routeAsia = insertedRoutes.find(r => r.route_type === 'explore' && r.explore_regions?.includes('Asia'));
+    if (routeAsia) {
+      const prices = [5100, 4900, 4850, 4700, 4900, 4800, 4600];
+      prices.forEach((price, idx) => {
+        historyData.push({
+          route_id: routeAsia.id,
+          lowest_price_found: price,
+          currency: routeAsia.currency,
+          fetch_date: getPastDateString((prices.length - 1 - idx) * 1),
+          explore_deals: [
+            { destination: 'BKK', airportName: 'Bangkok Suvarnabhumi', price: price, duration: 650, airline: 'Thai Airways' },
+            { destination: 'NRT', airportName: 'Tokyo Narita', price: price + 400, duration: 780, airline: 'SAS' },
+            { destination: 'SIN', airportName: 'Singapore Changi', price: price + 800, duration: 800, airline: 'Singapore Airlines' }
           ]
         });
       });

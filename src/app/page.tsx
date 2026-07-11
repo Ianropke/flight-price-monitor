@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { 
   Plane, Plus, Loader2, BellRing, Info, 
-  RefreshCw, Database, Activity 
+  RefreshCw, Database, Activity, Globe, Compass 
 } from 'lucide-react';
 import { RouteWithHistory } from '@/types';
 import AddRouteModal from '@/components/AddRouteModal';
@@ -66,7 +66,7 @@ export default function Home() {
 
   // Run dummy DB seed action
   const handleSeedDatabase = async () => {
-    if (!confirm('Dette vil fylde databasen med testruter (CPH-OPO, CPH-EDI osv.) og historiske prispunkter. Vil du fortsætte?')) {
+    if (!confirm('Dette vil fylde databasen med test "Udforsk"-agenter og historiske prispunkter. Vil du fortsætte?')) {
       return;
     }
     setIsSeeding(true);
@@ -133,14 +133,14 @@ export default function Home() {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-6">
         <div className="flex items-center space-x-3.5">
           <div className="p-2.5 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 shadow-lg shadow-indigo-600/10">
-            <Plane className="w-6 h-6 text-indigo-400 rotate-45" />
+            <Globe className="w-6 h-6 text-indigo-400" />
           </div>
           <div>
             <h1 className="text-3xl font-black tracking-tight text-white font-outfit">
               Flypris-<span className="text-indigo-400 glow-text-indigo">Monitor</span>
             </h1>
             <p className="text-xs font-semibold text-gray-400 mt-0.5 tracking-wide uppercase">
-              Automatiseret Google Flights (SerpApi) scraper
+              Udforsk verden og få besked om de billigste flyrejser
             </p>
           </div>
         </div>
@@ -164,8 +164,8 @@ export default function Home() {
             onClick={handleAddClick}
             className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" />
-            <span>Tilføj rute</span>
+            <Compass className="w-4 h-4" />
+            <span>Start Udforskning</span>
           </button>
         </div>
       </header>
@@ -257,7 +257,7 @@ export default function Home() {
       {/* Main Tracked Routes Cards Grid */}
       <section className="space-y-6">
         <h2 className="text-xl font-bold tracking-wide font-outfit text-white flex items-center gap-2">
-          <span>Ruter under overvågning</span>
+          <span>Dine Rejse-Agenter</span>
           <span className="px-2 py-0.5 rounded-full bg-white/5 text-xs text-gray-400 font-bold border border-white/5">
             {routes.length}
           </span>
@@ -296,30 +296,31 @@ export default function Home() {
         ) : (
           /* Empty State */
           <div className="glass-panel py-16 px-6 text-center rounded-2xl border border-dashed border-white/10 bg-gray-950/10 flex flex-col items-center justify-center space-y-4 max-w-2xl mx-auto">
-            <div className="p-4 rounded-full bg-white/5 border border-white/5 text-gray-400">
-              <Plane className="w-8 h-8 rotate-45" />
+            <div className="p-4 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+              <Globe className="w-10 h-10" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-lg font-bold text-white">Ingen flyvninger overvåges endnu</h3>
-              <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
-                Tilføj de flyruter, du planlægger at rejse på, angiv målpriser eller procentvise fald, så overvåger vi dem for dig.
+              <h3 className="text-xl font-black text-white font-outfit">Hvor vil du hen?</h3>
+              <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
+                Vælg en verdensdel og en tidsperiode. Vi overvåger dagligt markedet og sender dig markedets absolut bedste prisfald!
               </p>
             </div>
             
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-4 w-full sm:w-auto">
               <button
                 onClick={handleSeedDatabase}
                 disabled={isSeeding}
-                className="px-4 py-2 rounded-xl border border-white/10 text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-white/10 text-xs font-bold text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
               >
-                Indlæs testdata
+                Vis mig et eksempel
               </button>
               
               <button
                 onClick={handleAddClick}
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex justify-center items-center gap-2"
               >
-                Tilføj din første rute
+                <Compass className="w-4 h-4" />
+                Start din første udforskning
               </button>
             </div>
           </div>
