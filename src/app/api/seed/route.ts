@@ -22,6 +22,7 @@ export async function GET(request: Request) {
       {
         origin_iata: 'CPH',
         destination_iata: 'OPO',
+        route_type: 'specific',
         departure_date: '2026-11-12',
         return_date: '2026-11-19',
         target_price_threshold: 1200,
@@ -32,6 +33,7 @@ export async function GET(request: Request) {
       {
         origin_iata: 'CPH',
         destination_iata: 'EDI',
+        route_type: 'specific',
         departure_date: '2026-11-15',
         return_date: '2026-11-22',
         target_price_threshold: null,
@@ -42,10 +44,23 @@ export async function GET(request: Request) {
       {
         origin_iata: 'CPH',
         destination_iata: 'JFK',
+        route_type: 'specific',
         departure_date: '2026-11-10',
         return_date: '2026-11-24',
         target_price_threshold: 3000,
         drop_percentage_threshold: 10,
+        currency: 'DKK',
+        status: 'active'
+      },
+      {
+        origin_iata: 'CPH',
+        destination_iata: null,
+        route_type: 'explore',
+        explore_regions: ['Europe'],
+        departure_date: '2026-12-20',
+        return_date: '2026-12-27',
+        target_price_threshold: 2000,
+        drop_percentage_threshold: null,
         currency: 'DKK',
         status: 'active'
       }
@@ -62,7 +77,7 @@ export async function GET(request: Request) {
 
     // 3. Generate history data for each route
     const now = new Date();
-    const historyData: { route_id: string; lowest_price_found: number; currency: string; fetch_date: string }[] = [];
+    const historyData: { route_id: string; lowest_price_found: number; currency: string; fetch_date: string; explore_deals?: any }[] = [];
 
     // Helper to generate ISO strings at offsets
     const getPastDateString = (daysAgo: number) => {
@@ -109,6 +124,25 @@ export async function GET(request: Request) {
           lowest_price_found: price,
           currency: route3.currency,
           fetch_date: getPastDateString((prices.length - 1 - idx) * 1),
+        });
+      });
+    }
+
+    // Route 4 (CPH -> Europe Explore) prices
+    const route4 = insertedRoutes.find(r => r.route_type === 'explore');
+    if (route4) {
+      const prices = [1100, 1050, 950, 800, 850, 750, 680];
+      prices.forEach((price, idx) => {
+        historyData.push({
+          route_id: route4.id,
+          lowest_price_found: price,
+          currency: route4.currency,
+          fetch_date: getPastDateString((prices.length - 1 - idx) * 1),
+          explore_deals: [
+            { destination: 'LHR', airportName: 'London Heathrow', price: price, duration: 120, airline: 'British Airways' },
+            { destination: 'CDG', airportName: 'Paris Charles de Gaulle', price: price + 150, duration: 130, airline: 'Air France' },
+            { destination: 'FCO', airportName: 'Rome Fiumicino', price: price + 200, duration: 160, airline: 'SAS' }
+          ]
         });
       });
     }

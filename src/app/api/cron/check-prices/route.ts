@@ -83,15 +83,35 @@ export async function GET(request: Request) {
       console.log(`Prisskraber: Tjekker priser for ${routeLabel}...`);
 
       try {
-        // Hent den seneste flypris
-        const priceResult = await flightService.fetchLowestPrice({
-          origin: route.origin_iata,
-          destination: route.destination_iata,
-          departureDate: route.departure_date,
-          returnDate: route.return_date,
-          currency: route.currency,
-          tripDuration: route.trip_duration
-        });
+        let priceResult;
+        
+        if (route.route_type === 'explore' && route.explore_regions && route.explore_regions.length > 0) {
+          const regionMap: Record<string, string> = {
+            'Europe': '/m/02j9z',
+            'Asia': '/m/0166m',
+            'North America': '/m/054sv',
+            'South America': '/m/06v8s'
+          };
+          const regionId = regionMap[route.explore_regions[0]] || '/m/02j9z';
+
+          priceResult = await flightService.fetchExploreDeals({
+            origin: route.origin_iata,
+            exploreRegionId: regionId,
+            departureDate: route.departure_date,
+            returnDate: route.return_date,
+            currency: route.currency,
+            tripDuration: route.trip_duration
+          });
+        } else {
+          priceResult = await flightService.fetchLowestPrice({
+            origin: route.origin_iata,
+            destination: route.destination_iata,
+            departureDate: route.departure_date,
+            returnDate: route.return_date,
+            currency: route.currency,
+            tripDuration: route.trip_duration
+          });
+        }
 
         const currentPrice = priceResult.lowestPrice;
 
@@ -102,6 +122,7 @@ export async function GET(request: Request) {
             route_id: route.id,
             lowest_price_found: currentPrice,
             currency: route.currency,
+            explore_deals: priceResult.exploreDeals || null,
             raw_response: priceResult.rawPayload
           });
 

@@ -8,8 +8,10 @@ DROP TABLE IF EXISTS tracked_routes CASCADE;
 CREATE TABLE tracked_routes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    route_type VARCHAR(20) DEFAULT 'specific' NOT NULL,
     origin_iata VARCHAR(3) NOT NULL,
-    destination_iata VARCHAR(3) NOT NULL,
+    destination_iata VARCHAR(3),
+    explore_regions TEXT[],
     departure_date DATE NOT NULL,
     return_date DATE NOT NULL,
     target_price_threshold DECIMAL(10, 2),
@@ -19,7 +21,11 @@ CREATE TABLE tracked_routes (
     trip_duration INTEGER,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     CONSTRAINT chk_iata_origin CHECK (length(origin_iata) = 3),
-    CONSTRAINT chk_iata_destination CHECK (length(destination_iata) = 3),
+    CONSTRAINT chk_iata_destination CHECK (destination_iata IS NULL OR length(destination_iata) = 3),
+    CONSTRAINT chk_route_type_data CHECK (
+        (route_type = 'specific' AND destination_iata IS NOT NULL) OR
+        (route_type = 'explore' AND explore_regions IS NOT NULL)
+    ),
     CONSTRAINT chk_dates CHECK (departure_date <= return_date),
     CONSTRAINT chk_status CHECK (status IN ('active', 'inactive'))
 );
@@ -31,6 +37,7 @@ CREATE TABLE price_history (
     fetch_date TIMESTAMPTZ DEFAULT now() NOT NULL,
     lowest_price_found DECIMAL(10, 2) NOT NULL,
     currency VARCHAR(3) DEFAULT 'DKK' NOT NULL,
+    explore_deals JSONB,
     raw_response JSONB,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );

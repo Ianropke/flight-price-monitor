@@ -57,7 +57,8 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
 
   // Handle actions
   const handleDelete = async () => {
-    if (!confirm(`Er du sikker på, at du vil stoppe med at overvåge flyvninger fra ${route.origin_iata} til ${route.destination_iata}?`)) {
+    const destLabel = route.route_type === 'explore' ? 'Udforsk ' + route.explore_regions?.join(', ') : route.destination_iata;
+    if (!confirm(`Er du sikker på, at du vil stoppe med at overvåge flyvninger fra ${route.origin_iata} til ${destLabel}?`)) {
       return;
     }
     setIsDeleting(true);
@@ -203,8 +204,21 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
               <span>{getCityName(route.origin_iata)}</span>
               <span className="text-[10px] font-semibold text-indigo-300 uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 shrink-0">{route.origin_iata}</span>
               <ArrowRight className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-              <span>{getCityName(route.destination_iata)}</span>
-              <span className="text-[10px] font-semibold text-indigo-300 uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 shrink-0">{route.destination_iata}</span>
+              {route.route_type === 'explore' ? (
+                <>
+                  <span className="text-emerald-400">Udforsk</span>
+                  <span className="text-[10px] font-semibold text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 shrink-0">
+                    {route.explore_regions?.join(', ')}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>{getCityName(route.destination_iata || '')}</span>
+                  <span className="text-[10px] font-semibold text-indigo-300 uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 shrink-0">
+                    {route.destination_iata}
+                  </span>
+                </>
+              )}
               {isInactive && (
                 <span className="px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-red-500/20 text-red-400 border border-red-500/30 rounded-md flex items-center gap-1 shrink-0">
                   <EyeOff className="w-2.5 h-2.5" />
@@ -259,7 +273,7 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
         {/* Pricing / Alert Thresholds Indicators */}
         <div className="grid grid-cols-2 gap-4 pt-2">
           <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Aktuel pris</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Aktuel {route.route_type === 'explore' ? 'fra-pris' : 'pris'}</span>
             <div className="flex items-baseline space-x-1 text-white">
               {currentPrice !== null ? (
                 <>
@@ -417,9 +431,29 @@ export default function TrackedRouteCard({ route, onDelete, onRefresh, onEdit }:
                 </div>
               )}
             </div>
+            
+            {/* Show top 3 deals for Explore mode */}
+            {route.route_type === 'explore' && latestFetch?.explore_deals && Array.isArray(latestFetch.explore_deals) && (
+              <div className="mt-4 pt-3 border-t border-white/5 space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Top Fund Lige Nu</span>
+                <div className="space-y-1.5">
+                  {latestFetch.explore_deals.slice(0, 3).map((deal: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center text-xs p-2 rounded-lg bg-emerald-950/20 border border-emerald-500/10">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white">{deal.airportName}</span>
+                        <span className="text-[9px] text-emerald-200/50 uppercase border border-emerald-500/20 px-1 rounded">{deal.destination}</span>
+                      </div>
+                      <div className="font-bold text-emerald-400">
+                        {deal.price} {route.currency}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Total tracked data points count */}
-            <div className="text-[9px] text-right font-semibold text-gray-500 uppercase tracking-widest mt-1">
+            <div className="text-[9px] text-right font-semibold text-gray-500 uppercase tracking-widest mt-2">
               {history.length} pristjek registreret
             </div>
           </div>

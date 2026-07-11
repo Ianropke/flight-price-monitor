@@ -1,21 +1,26 @@
+import { ExploreDeal } from '@/types';
+
 export interface FlightSearchCriteria {
   origin: string;
-  destination: string;
+  destination?: string; // Optional for explore
   departureDate: string; // YYYY-MM-DD (or earliest departure if flexible)
   returnDate?: string;    // YYYY-MM-DD (or latest return if flexible)
   currency?: string;      // Defaults to DKK
   tripDuration?: number | null; // Optional trip duration in days for flexible windows
+  exploreRegionId?: string; // kgmid for Explore Mode
 }
 
 export interface FlightPriceResult {
   lowestPrice: number;
   currency: string;
   carrierCode?: string;
+  exploreDeals?: ExploreDeal[];
   rawPayload: any;
 }
 
 export interface IFlightService {
   fetchLowestPrice(criteria: FlightSearchCriteria): Promise<FlightPriceResult>;
+  fetchExploreDeals(criteria: FlightSearchCriteria): Promise<FlightPriceResult>;
 }
 
 class SerpApiFlightService implements IFlightService {
@@ -151,7 +156,7 @@ class SerpApiFlightService implements IFlightService {
             return await this.fetchSinglePrice(
               apiKey,
               criteria.origin,
-              criteria.destination,
+              criteria.destination || '',
               criteria.departureDate,
               criteria.returnDate,
               currency
@@ -181,7 +186,7 @@ class SerpApiFlightService implements IFlightService {
             return this.fetchSinglePrice(
               apiKey,
               criteria.origin,
-              criteria.destination,
+              criteria.destination || '',
               depDate,
               retDate,
               currency
@@ -219,7 +224,7 @@ class SerpApiFlightService implements IFlightService {
           return await this.fetchSinglePrice(
             apiKey,
             criteria.origin,
-            criteria.destination,
+            criteria.destination || '',
             criteria.departureDate,
             criteria.returnDate,
             currency
@@ -232,14 +237,15 @@ class SerpApiFlightService implements IFlightService {
     }
 
     // Simulator Fallback
-    const basePrice = this.getBasePrice(criteria.origin, criteria.destination);
+    const dest = criteria.destination || '';
+    const basePrice = this.getBasePrice(criteria.origin, dest);
     const simulatedPrice = this.getSimulatedPrice(basePrice, isFlexible);
     
     const carriers = ['SK', 'DY', 'FR', 'EZ', 'LH', 'TP'];
-    const carrierIndex = Math.abs(criteria.origin.charCodeAt(0) + criteria.destination.charCodeAt(0)) % carriers.length;
+    const carrierIndex = Math.abs(criteria.origin.charCodeAt(0) + dest.charCodeAt(0)) % carriers.length;
     const carrierCode = carriers[carrierIndex];
 
-    console.log(`[SerpApi Flight Simulator] ${criteria.origin} -> ${criteria.destination}: ${simulatedPrice} ${currency} (Fleksibel: ${isFlexible})`);
+    console.log(`[SerpApi Flight Simulator] ${criteria.origin} -> ${dest}: ${simulatedPrice} ${currency} (Fleksibel: ${isFlexible})`);
 
     return {
       lowestPrice: simulatedPrice,
@@ -251,6 +257,82 @@ class SerpApiFlightService implements IFlightService {
         isFlexible,
         timestamp: new Date().toISOString()
       }
+    };
+  }
+
+  async fetchExploreDeals(criteria: FlightSearchCriteria): Promise<FlightPriceResult> {
+    const apiKey = process.env.SERPAPI_KEY;
+    const currency = criteria.currency || 'DKK';
+
+    if (!criteria.exploreRegionId) {
+      throw new Error('ExploreRegionId is required for explore deals');
+    }
+
+    if (apiKey && apiKey !== 'your-serpapi-api-key') {
+      try {
+        const params = new URLSearchParams({
+          engine: 'google_travel_explore',
+          departure_id: criteria.origin.toUpperCase(),
+          arrival_id: criteria.exploreRegionId,
+          outbound_date: criteria.departureDate,
+          return_date: criteria.returnDate || '',
+          currency: currency,
+          hl: 'da',
+          gl: 'dk',
+          api_key: apiKey,
+        });
+
+        const response = await fetch(`https://serpapi.com/search.json?${params.toString()}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Explore API failed: ${await response.text()}`);
+        }
+
+        const payload = await response.json();
+        const flights = payload.flights || [];
+
+        const exploreDeals: ExploreDeal[] = flights.slice(0, 5).map((f: any) => ({
+          destination: f.arrival_airport?.id || 'Unknown',
+          airportName: f.arrival_airport?.name || 'Unknown Airport',
+          price: parseFloat(f.price) || 0,
+          duration: f.duration || 0,
+          airline: f.airline || 'Unknown'
+        })).filter((d: ExploreDeal) => d.price > 0);
+
+        if (exploreDeals.length === 0) {
+          throw new Error('No deals found in Explore API response');
+        }
+
+        // The overall lowest price for the region
+        const lowestPrice = Math.min(...exploreDeals.map((d: ExploreDeal) => d.price));
+
+        return {
+          lowestPrice,
+          currency,
+          exploreDeals,
+          rawPayload: payload
+        };
+      } catch (err: any) {
+        console.warn('Real SerpApi Explore failed, falling back to simulator:', err.message);
+      }
+    }
+
+    // Simulator Fallback for Explore
+    console.log(`[Simulator] Exploring deals for region ${criteria.exploreRegionId}`);
+    const simulatedDeals: ExploreDeal[] = [
+      { destination: 'LHR', airportName: 'London Heathrow', price: 400 + Math.floor(Math.random()*200), duration: 120, airline: 'British Airways' },
+      { destination: 'CDG', airportName: 'Paris Charles de Gaulle', price: 500 + Math.floor(Math.random()*200), duration: 130, airline: 'Air France' },
+      { destination: 'FCO', airportName: 'Rome Fiumicino', price: 600 + Math.floor(Math.random()*200), duration: 160, airline: 'SAS' }
+    ];
+    
+    return {
+      lowestPrice: Math.min(...simulatedDeals.map(d => d.price)),
+      currency,
+      exploreDeals: simulatedDeals,
+      rawPayload: { info: 'Simulated explore deals' }
     };
   }
 }

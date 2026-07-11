@@ -61,8 +61,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { 
+      route_type = 'specific',
       origin_iata, 
-      destination_iata, 
+      destination_iata,
+      explore_regions,
       departure_date, 
       return_date, 
       target_price_threshold, 
@@ -75,8 +77,11 @@ export async function POST(request: Request) {
     if (!origin_iata || origin_iata.length !== 3) {
       return NextResponse.json({ error: 'Afrejse skal være en 3-bogstavs IATA-kode (f.eks. CPH)' }, { status: 400 });
     }
-    if (!destination_iata || destination_iata.length !== 3) {
+    if (route_type === 'specific' && (!destination_iata || destination_iata.length !== 3)) {
       return NextResponse.json({ error: 'Destination skal være en 3-bogstavs IATA-kode (f.eks. OPO)' }, { status: 400 });
+    }
+    if (route_type === 'explore' && (!explore_regions || explore_regions.length === 0)) {
+      return NextResponse.json({ error: 'Explore mode kræver mindst én region' }, { status: 400 });
     }
     if (!departure_date || !return_date) {
       return NextResponse.json({ error: 'Afrejse- og hjemrejsedato er påkrævet' }, { status: 400 });
@@ -93,8 +98,10 @@ export async function POST(request: Request) {
       .from('tracked_routes')
       .insert({
         user_id: user?.id || null, // fallback to guest if not authenticated
+        route_type,
         origin_iata: origin_iata.toUpperCase(),
-        destination_iata: destination_iata.toUpperCase(),
+        destination_iata: destination_iata ? destination_iata.toUpperCase() : null,
+        explore_regions: explore_regions || null,
         departure_date,
         return_date,
         target_price_threshold: target_price_threshold ? parseFloat(target_price_threshold) : null,
@@ -111,26 +118,46 @@ export async function POST(request: Request) {
     }
 
     // Proactively fetch initial price synchronously so dashboard has instant feedback
-    let initialPrice: number | null = null;
     try {
-      const priceResult = await flightService.fetchLowestPrice({
-        origin: route.origin_iata,
-        destination: route.destination_iata,
-        departureDate: route.departure_date,
-        returnDate: route.return_date,
-        currency: route.currency,
-        tripDuration: route.trip_duration
-      });
+      let priceResult;
+      
+      if (route.route_type === 'explore' && route.explore_regions && route.explore_regions.length > 0) {
+        // Just search the first region for the initial synchronous fetch to show something
+        const regionMap: Record<string, string> = {
+          'Europe': '/m/02j9z',
+          'Asia': '/m/0166m',
+          'North America': '/m/054sv',
+          'South America': '/m/06v8s'
+        };
+        const regionId = regionMap[route.explore_regions[0]] || '/m/02j9z';
 
-      initialPrice = priceResult.lowestPrice;
+        priceResult = await flightService.fetchExploreDeals({
+          origin: route.origin_iata,
+          exploreRegionId: regionId,
+          departureDate: route.departure_date,
+          returnDate: route.return_date,
+          currency: route.currency,
+          tripDuration: route.trip_duration
+        });
+      } else {
+        priceResult = await flightService.fetchLowestPrice({
+          origin: route.origin_iata,
+          destination: route.destination_iata!,
+          departureDate: route.departure_date,
+          returnDate: route.return_date,
+          currency: route.currency,
+          tripDuration: route.trip_duration
+        });
+      }
 
       // Save initial price history entry
       await supabase
         .from('price_history')
         .insert({
           route_id: route.id,
-          lowest_price_found: initialPrice,
+          lowest_price_found: priceResult.lowestPrice,
           currency: route.currency,
+          explore_deals: priceResult.exploreDeals || null,
           raw_response: priceResult.rawPayload
         });
     } catch (apiError: any) {
@@ -244,14 +271,35 @@ export async function PUT(request: Request) {
     }
 
     // Fetch the latest price from SerpApi
-    const priceResult = await flightService.fetchLowestPrice({
-      origin: route.origin_iata,
-      destination: route.destination_iata,
-      departureDate: route.departure_date,
-      returnDate: route.return_date,
-      currency: route.currency,
-      tripDuration: route.trip_duration
-    });
+    let priceResult;
+    if (route.route_type === 'explore' && route.explore_regions && route.explore_regions.length > 0) {
+        const regionMap: Record<string, string> = {
+          'Europe': '/m/02j9z',
+          'Asia': '/m/0166m',
+          'North America': '/m/054sv',
+          'South America': '/m/06v8s'
+        };
+        // For simplicity in a synchronous PUT refresh, just refresh the first region
+        const regionId = regionMap[route.explore_regions[0]] || '/m/02j9z';
+
+        priceResult = await flightService.fetchExploreDeals({
+          origin: route.origin_iata,
+          exploreRegionId: regionId,
+          departureDate: route.departure_date,
+          returnDate: route.return_date,
+          currency: route.currency,
+          tripDuration: route.trip_duration
+        });
+    } else {
+        priceResult = await flightService.fetchLowestPrice({
+          origin: route.origin_iata,
+          destination: route.destination_iata!,
+          departureDate: route.departure_date,
+          returnDate: route.return_date,
+          currency: route.currency,
+          tripDuration: route.trip_duration
+        });
+    }
 
     // Save the new price to history
     const { error: historyError } = await supabase
@@ -260,6 +308,7 @@ export async function PUT(request: Request) {
         route_id: route.id,
         lowest_price_found: priceResult.lowestPrice,
         currency: route.currency,
+        explore_deals: priceResult.exploreDeals || null,
         raw_response: priceResult.rawPayload
       });
 
@@ -305,6 +354,9 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { 
       id,
+      route_type,
+      destination_iata,
+      explore_regions,
       departure_date, 
       return_date, 
       target_price_threshold, 
@@ -349,17 +401,23 @@ export async function PATCH(request: Request) {
     const newStatus = new Date(departure_date) >= new Date(todayStr) ? 'active' : 'inactive';
 
     // Update tracked route fields
+    const updatePayload: any = {
+      departure_date,
+      return_date,
+      target_price_threshold: target_price_threshold ? parseFloat(target_price_threshold) : null,
+      drop_percentage_threshold: drop_percentage_threshold ? parseFloat(drop_percentage_threshold) : null,
+      trip_duration: trip_duration ? parseInt(trip_duration) : null,
+      currency: currency.toUpperCase(),
+      status: newStatus
+    };
+
+    if (route_type) updatePayload.route_type = route_type;
+    if (destination_iata !== undefined) updatePayload.destination_iata = destination_iata;
+    if (explore_regions !== undefined) updatePayload.explore_regions = explore_regions;
+
     const { data: updatedRoute, error: updateError } = await supabase
       .from('tracked_routes')
-      .update({
-        departure_date,
-        return_date,
-        target_price_threshold: target_price_threshold ? parseFloat(target_price_threshold) : null,
-        drop_percentage_threshold: drop_percentage_threshold ? parseFloat(drop_percentage_threshold) : null,
-        trip_duration: trip_duration ? parseInt(trip_duration) : null,
-        currency: currency.toUpperCase(),
-        status: newStatus
-      })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();
@@ -369,26 +427,45 @@ export async function PATCH(request: Request) {
     }
 
     // Trigger price refresh immediately so graph reflects updated date candidate/price point
-    let freshPrice: number | null = null;
     try {
-      const priceResult = await flightService.fetchLowestPrice({
-        origin: updatedRoute.origin_iata,
-        destination: updatedRoute.destination_iata,
-        departureDate: updatedRoute.departure_date,
-        returnDate: updatedRoute.return_date,
-        currency: updatedRoute.currency,
-        tripDuration: updatedRoute.trip_duration
-      });
+      let priceResult;
+      
+      if (updatedRoute.route_type === 'explore' && updatedRoute.explore_regions && updatedRoute.explore_regions.length > 0) {
+        const regionMap: Record<string, string> = {
+          'Europe': '/m/02j9z',
+          'Asia': '/m/0166m',
+          'North America': '/m/054sv',
+          'South America': '/m/06v8s'
+        };
+        const regionId = regionMap[updatedRoute.explore_regions[0]] || '/m/02j9z';
 
-      freshPrice = priceResult.lowestPrice;
+        priceResult = await flightService.fetchExploreDeals({
+          origin: updatedRoute.origin_iata,
+          exploreRegionId: regionId,
+          departureDate: updatedRoute.departure_date,
+          returnDate: updatedRoute.return_date,
+          currency: updatedRoute.currency,
+          tripDuration: updatedRoute.trip_duration
+        });
+      } else {
+        priceResult = await flightService.fetchLowestPrice({
+          origin: updatedRoute.origin_iata,
+          destination: updatedRoute.destination_iata!,
+          departureDate: updatedRoute.departure_date,
+          returnDate: updatedRoute.return_date,
+          currency: updatedRoute.currency,
+          tripDuration: updatedRoute.trip_duration
+        });
+      }
 
       // Save initial price history entry for new configuration
       await supabase
         .from('price_history')
         .insert({
           route_id: updatedRoute.id,
-          lowest_price_found: freshPrice,
+          lowest_price_found: priceResult.lowestPrice,
           currency: updatedRoute.currency,
+          explore_deals: priceResult.exploreDeals || null,
           raw_response: priceResult.rawPayload
         });
     } catch (apiError: any) {

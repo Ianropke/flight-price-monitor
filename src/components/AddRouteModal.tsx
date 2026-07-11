@@ -98,6 +98,9 @@ const generateWeekOptions = (): TimeOption[] => {
 };
 
 export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit }: AddRouteModalProps) {
+  const [routeType, setRouteType] = useState<'specific' | 'explore'>('specific');
+  const [exploreRegions, setExploreRegions] = useState<string[]>(['Europe']);
+  
   const [originSearch, setOriginSearch] = useState('');
   const [originIata, setOriginIata] = useState('');
   const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
@@ -141,9 +144,20 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
       setOriginSearch(origAirport ? `${origAirport.city} (${origAirport.code})` : routeToEdit.origin_iata);
       setOriginIata(routeToEdit.origin_iata);
 
+      setRouteType(routeToEdit.route_type || 'specific');
+      
+      if (routeToEdit.route_type === 'explore') {
+        setExploreRegions(routeToEdit.explore_regions || ['Europe']);
+      }
+
       const destAirport = POPULAR_AIRPORTS.find(a => a.code === routeToEdit.destination_iata);
-      setDestSearch(destAirport ? `${destAirport.city} (${destAirport.code})` : routeToEdit.destination_iata);
-      setDestIata(routeToEdit.destination_iata);
+      if (routeToEdit.destination_iata) {
+        setDestSearch(destAirport ? `${destAirport.city} (${destAirport.code})` : routeToEdit.destination_iata);
+        setDestIata(routeToEdit.destination_iata);
+      } else {
+        setDestSearch('');
+        setDestIata('');
+      }
 
       setCurrency(routeToEdit.currency || 'DKK');
       setTargetType(routeToEdit.target_price_threshold ? 'absolute' : 'percentage');
@@ -188,6 +202,8 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
       }
     } else if (isOpen) {
       // Reset form fields
+      setRouteType('specific');
+      setExploreRegions(['Europe']);
       setOriginSearch('');
       setOriginIata('');
       setDestSearch('');
@@ -265,6 +281,14 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
     setShowDestSuggestions(false);
   };
 
+  const toggleRegion = (region: string) => {
+    setExploreRegions(prev => 
+      prev.includes(region) 
+        ? prev.filter(r => r !== region)
+        : [...prev, region]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -283,9 +307,17 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
       setError('Vælg en afrejseby fra listen eller indtast en 3-bogstavs IATA-kode (f.eks. CPH)');
       return;
     }
-    if (!finalDest || finalDest.length !== 3) {
-      setError('Vælg en destination fra listen eller indtast en 3-bogstavs IATA-kode (f.eks. OPO)');
-      return;
+    
+    if (routeType === 'specific') {
+      if (!finalDest || finalDest.length !== 3) {
+        setError('Vælg en destination fra listen eller indtast en 3-bogstavs IATA-kode (f.eks. OPO)');
+        return;
+      }
+    } else {
+      if (exploreRegions.length === 0) {
+        setError('Vælg mindst én region for udforskning');
+        return;
+      }
     }
 
     let departure_date = '';
@@ -331,8 +363,10 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
         },
         body: JSON.stringify({
           id: routeToEdit?.id,
+          route_type: routeType,
           origin_iata: finalOrigin,
-          destination_iata: finalDest,
+          destination_iata: routeType === 'specific' ? finalDest : null,
+          explore_regions: routeType === 'explore' ? exploreRegions : null,
           departure_date,
           return_date,
           target_price_threshold: targetType === 'absolute' ? parseFloat(targetPriceThreshold) || null : null,
@@ -390,6 +424,34 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
             </div>
           )}
 
+          {/* Route Type Toggle */}
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-gray-900/80 border border-white/5">
+              <button
+                type="button"
+                onClick={() => setRouteType('specific')}
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  routeType === 'specific' 
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Specifik Rute
+              </button>
+              <button
+                type="button"
+                onClick={() => setRouteType('explore')}
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  routeType === 'explore' 
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' 
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Udforsk Verden
+              </button>
+            </div>
+          </div>
+
           {/* Origins / Destinations */}
           <div className="grid grid-cols-2 gap-4">
             <div className="relative space-y-2" ref={originRef}>
@@ -430,43 +492,68 @@ export default function AddRouteModal({ isOpen, onClose, onSuccess, routeToEdit 
               )}
             </div>
             
-            <div className="relative space-y-2" ref={destRef}>
-              <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                <PlaneLanding className="w-3.5 h-3.5 text-indigo-400" />
-                Destination (By eller IATA)
-              </label>
-              <input
-                type="text"
-                placeholder="Skriv ankomstby..."
-                value={destSearch}
-                onChange={(e) => handleDestChange(e.target.value)}
-                onFocus={() => setShowDestSuggestions(true)}
-                required
-                autoComplete="off"
-                disabled={!!routeToEdit}
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white disabled:opacity-50"
-              />
-              {showDestSuggestions && destSuggestions.length > 0 && (
-                <div className="absolute left-0 right-0 mt-1 z-[100] max-h-48 overflow-y-auto rounded-xl bg-gray-950/95 border border-white/10 shadow-2xl backdrop-blur-md">
-                  {destSuggestions.map((a) => (
+            {routeType === 'specific' ? (
+              <div className="relative space-y-2" ref={destRef}>
+                <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                  <PlaneLanding className="w-3.5 h-3.5 text-indigo-400" />
+                  Destination (By eller IATA)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Skriv ankomstby..."
+                  value={destSearch}
+                  onChange={(e) => handleDestChange(e.target.value)}
+                  onFocus={() => setShowDestSuggestions(true)}
+                  required
+                  autoComplete="off"
+                  disabled={!!routeToEdit}
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white disabled:opacity-50"
+                />
+                {showDestSuggestions && destSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 mt-1 z-[100] max-h-48 overflow-y-auto rounded-xl bg-gray-950/95 border border-white/10 shadow-2xl backdrop-blur-md">
+                    {destSuggestions.map((a) => (
+                      <button
+                        key={a.code}
+                        type="button"
+                        onClick={() => selectDestSuggestion(a)}
+                        className="w-full px-4 py-2 text-left text-xs hover:bg-indigo-600/30 text-gray-300 hover:text-white border-b border-white/5 last:border-b-0 flex justify-between items-center transition-colors"
+                      >
+                        <div>
+                          <div className="font-bold text-white">{a.city}</div>
+                          <div className="text-[10px] text-gray-400">{a.name}</div>
+                        </div>
+                        <div className="font-black text-indigo-400 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/25">
+                          {a.code}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                  <PlaneLanding className="w-3.5 h-3.5 text-emerald-400" />
+                  Verdensdele
+                </label>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {['Europe', 'Asia', 'North America', 'South America'].map(region => (
                     <button
-                      key={a.code}
+                      key={region}
                       type="button"
-                      onClick={() => selectDestSuggestion(a)}
-                      className="w-full px-4 py-2 text-left text-xs hover:bg-indigo-600/30 text-gray-300 hover:text-white border-b border-white/5 last:border-b-0 flex justify-between items-center transition-colors"
+                      onClick={() => toggleRegion(region)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                        exploreRegions.includes(region)
+                          ? 'bg-emerald-600/20 border-emerald-500/50 text-emerald-300'
+                          : 'border-white/5 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                      }`}
                     >
-                      <div>
-                        <div className="font-bold text-white">{a.city}</div>
-                        <div className="text-[10px] text-gray-400">{a.name}</div>
-                      </div>
-                      <div className="font-black text-indigo-400 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/25">
-                        {a.code}
-                      </div>
+                      {region}
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Dato-fleksibilitet Toggle */}
