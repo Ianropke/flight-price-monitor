@@ -24,36 +24,7 @@ export interface IFlightService {
 }
 
 class SerpApiFlightService implements IFlightService {
-  private getBasePrice(origin: string, destination: string): number {
-    const route = `${origin.toUpperCase()}-${destination.toUpperCase()}`;
-    
-    // Realistiske basispriser i DKK
-    if (route === 'CPH-OPO') return 1200; // Porto
-    if (route === 'CPH-EDI') return 850;  // Edinburgh
-    if (route === 'CPH-JFK') return 3400; // New York
-    if (route === 'CPH-BCN') return 1100; // Barcelona
-    
-    // Stabil hash-pris for andre ruter
-    let hash = 0;
-    for (let i = 0; i < route.length; i++) {
-      hash = route.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return 1000 + (Math.abs(hash) % 3500); // 1000 to 4500 DKK
-  }
 
-  private getSimulatedPrice(basePrice: number, isFlexible = false): number {
-    // Generer et dynamisk udsving på +/- 15% baseret på sekundtal
-    const now = Date.now();
-    const wave = Math.sin(now / 15000);
-    let fluctuation = basePrice * 0.15 * wave;
-    
-    // Fleksible tidsrum er typisk 10% billigere i gennemsnit
-    let finalPrice = basePrice + fluctuation;
-    if (isFlexible) {
-      finalPrice = finalPrice * 0.9;
-    }
-    return Math.round(finalPrice);
-  }
 
   // Single standard API fetch helper
   private async fetchSinglePrice(
@@ -232,32 +203,12 @@ class SerpApiFlightService implements IFlightService {
         }
 
       } catch (error: any) {
-        console.warn('Real SerpApi call failed, falling back to simulator:', error.message);
+        console.error('Real SerpApi call failed:', error.message);
+        throw error;
       }
+    } else {
+      throw new Error('SERPAPI_KEY is not configured or is set to default placeholder.');
     }
-
-    // Simulator Fallback
-    const dest = criteria.destination || '';
-    const basePrice = this.getBasePrice(criteria.origin, dest);
-    const simulatedPrice = this.getSimulatedPrice(basePrice, isFlexible);
-    
-    const carriers = ['SK', 'DY', 'FR', 'EZ', 'LH', 'TP'];
-    const carrierIndex = Math.abs(criteria.origin.charCodeAt(0) + dest.charCodeAt(0)) % carriers.length;
-    const carrierCode = carriers[carrierIndex];
-
-    console.log(`[SerpApi Flight Simulator] ${criteria.origin} -> ${dest}: ${simulatedPrice} ${currency} (Fleksibel: ${isFlexible})`);
-
-    return {
-      lowestPrice: simulatedPrice,
-      currency,
-      carrierCode,
-      rawPayload: {
-        info: 'Simuleret prisdata fra SerpApi Google Flights simulator',
-        basePrice,
-        isFlexible,
-        timestamp: new Date().toISOString()
-      }
-    };
   }
 
   async fetchExploreDeals(criteria: FlightSearchCriteria): Promise<FlightPriceResult> {
@@ -316,24 +267,12 @@ class SerpApiFlightService implements IFlightService {
           rawPayload: payload
         };
       } catch (err: any) {
-        console.warn('Real SerpApi Explore failed, falling back to simulator:', err.message);
+        console.error('Real SerpApi Explore failed:', err.message);
+        throw err;
       }
+    } else {
+      throw new Error('SERPAPI_KEY is not configured or is set to default placeholder.');
     }
-
-    // Simulator Fallback for Explore
-    console.log(`[Simulator] Exploring deals for region ${criteria.exploreRegionId}`);
-    const simulatedDeals: ExploreDeal[] = [
-      { destination: 'LHR', airportName: 'London Heathrow', price: 400 + Math.floor(Math.random()*200), duration: 120, airline: 'British Airways' },
-      { destination: 'CDG', airportName: 'Paris Charles de Gaulle', price: 500 + Math.floor(Math.random()*200), duration: 130, airline: 'Air France' },
-      { destination: 'FCO', airportName: 'Rome Fiumicino', price: 600 + Math.floor(Math.random()*200), duration: 160, airline: 'SAS' }
-    ];
-    
-    return {
-      lowestPrice: Math.min(...simulatedDeals.map(d => d.price)),
-      currency,
-      exploreDeals: simulatedDeals,
-      rawPayload: { info: 'Simulated explore deals' }
-    };
   }
 }
 
